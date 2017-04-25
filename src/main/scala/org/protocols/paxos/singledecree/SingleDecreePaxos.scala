@@ -1,6 +1,5 @@
 package org.protocols.paxos.singledecree
 
-import akka.actor.Actor.Receive
 import akka.actor.{Actor, ActorRef}
 
 import scala.collection.immutable.Nil
