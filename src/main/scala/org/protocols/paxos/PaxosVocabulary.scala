@@ -3,7 +3,9 @@ package org.protocols.paxos
 import akka.actor.ActorRef
 
 /**
-  * This trait represents a single instance of SDP
+  * Common vocabulary for Paxos-like protocols
+  *
+  * @author Ilya Sergey
   */
 class PaxosVocabulary[T] {
 

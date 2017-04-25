@@ -107,7 +107,11 @@ trait SingleDecreePaxos[T] {
     override def receive: Receive = initReceive
   }
 
-  // TODO: implement a factory method for starting the Paxos
+  // TODO 1: implement a factory method for starting the Paxos
   // and returning the interface object to the client
+
+  // TODO 2: factor out the phases, so we could combine the messages
+
+  // TODO 3: implement the "blend "combinator
 
 }
