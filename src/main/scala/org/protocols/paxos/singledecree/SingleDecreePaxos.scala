@@ -1,49 +1,13 @@
 package org.protocols.paxos.singledecree
 
 import akka.actor.{Actor, ActorRef}
+import org.protocols.paxos.PaxosVocabulary
 
 import scala.collection.immutable.Nil
 
 /**
   * @author Ilya Sergey
   */
-
-/**
-  * This trait represents a single instance of SDP
-  */
-class PaxosVocabulary[T] {
-
-  type Ballot = Int
-
-  sealed trait PaxosMessage
-
-  case class Phase1A(ballot: Ballot,
-                     proposer: ActorRef) extends PaxosMessage
-
-  case class Phase1B(promise: Boolean,
-                     // highestBallot: Ballot,
-                     acceptor: ActorRef,
-                     valueOpt: Option[T]) extends PaxosMessage
-
-  case class Phase2A(ballot: Ballot,
-                     proposer: ActorRef,
-                     data: T) extends PaxosMessage
-
-  case class Phase2B(acceptedBallot: Ballot,
-                     acceptor: ActorRef,
-                     ack: Boolean) extends PaxosMessage
-
-  
-  // Administrative messages for initializing the consensus
-  case class ProposeValue(value: T)
-
-  // Administrative messages for querying
-  case class QueryAcceptor(sender: ActorRef) extends PaxosMessage
-  case class AgreedValueAcc(acc: ActorRef, valueOpt: Option[T]) extends PaxosMessage
-
-  case class QueryProposer(sender: ActorRef) extends PaxosMessage
-  case class AgreedValueProposer(valueOpt: Option[T]) extends PaxosMessage
-}
 
 trait SingleDecreePaxos[T] {
   // Instantiate messages
@@ -93,10 +57,10 @@ trait SingleDecreePaxos[T] {
       case ProposeValue(v) =>
         // Start Paxos round with my givenballot
         for (a <- acceptors) a ! Phase1A(myBallot, self)
-        context.become(proposerPhase1(v, Nil))
+        context.become(proposerMainPhase(v, Nil))
     }
 
-    def proposerPhase1(v: T, responses: List[(ActorRef, Option[T])]): Receive = {
+    def proposerMainPhase(v: T, responses: List[(ActorRef, Option[T])]): Receive = {
       case Phase1B(true, a, vOpt) =>
         val newResponses = (a, vOpt) :: responses
         // find maximal group
@@ -112,7 +76,7 @@ trait SingleDecreePaxos[T] {
           for (a <- quorum) a ! Phase2A(myBallot, self, toPropose)
           context.become(finalStage)
         } else {
-          context.become(proposerPhase1(v, newResponses))
+          context.become(proposerMainPhase(v, newResponses))
         }
     }
 
