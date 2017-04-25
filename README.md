@@ -1,4 +1,4 @@
-# A Library of Protocol Combinator
+# A Library of Protocol Combinators
 
 Experiments in implementing reusable distributed protocols with Scala and Akka.
 
