@@ -33,6 +33,7 @@ class PaxosVocabulary[T] {
                      acceptor: ActorRef,
                      ack: Boolean) extends PaxosMessage
 
+  
   // Administrative messages for initializing the consensus
   case class ProposeValue(value: T)
 
