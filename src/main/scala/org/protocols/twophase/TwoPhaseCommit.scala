@@ -3,6 +3,10 @@ package org.protocols.twophase
 import akka.actor._
 import scala.collection.mutable.{Map => MMap}
 
+/**
+  * @author Ilya Sergey
+  */
+
 // Messages of the protocol
 sealed trait TwoPhaseMessage {
   val round: Int

@@ -7,7 +7,7 @@ import scala.concurrent.duration._
 
 
 /**
- * @author ilya
+ * @author Ilya Sergey
  */
 
 class Consensus23Tests(_system: ActorSystem) extends TestKit(_system) with ImplicitSender with WordSpecLike with MustMatchers with BeforeAndAfterAll {
