@@ -2,9 +2,11 @@
 
 Experiments in implementing reusable distributed protocols with Scala and Akka.
 
-## Paxos family
+## Family of Paxos Consensus implementations
 
-* SingleDecreePaxos
+* Generic definition of Paxos roles 
+  * Single Degree Paxos, built on top of the Roles
+  * "_Fully disjoint_" MultiPaxos, using the same rols
 
 ## Additional protocols
 
