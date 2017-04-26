@@ -7,7 +7,7 @@ import org.protocols.paxos.{PaxosConfiguration, PaxosException, PaxosFactory}
   * @author Ilya Sergey
   */
 
-class MultiPaxosFactory[T] extends MultiPaxos[T] with PaxosFactory[T] {
+class MultiPaxosFactory[T] extends PaxosFactory[T] with MultiPaxos[T]  {
 
   // TODO: unify it!
   def createPaxosInstance(system: ActorSystem, numProposers: Int,

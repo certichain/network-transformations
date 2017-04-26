@@ -14,7 +14,7 @@ import org.protocols.paxos.PaxosRoles
 trait SlotProtocolCombinator[T] extends PaxosRoles[T] {
 
   type Slot = Int
-  type MsgType
+  type MsgType = PaxosMessage
 
   case class MessageWithSlot(slot: Int, msg: MsgType)
 

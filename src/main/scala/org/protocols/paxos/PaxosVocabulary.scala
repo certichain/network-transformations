@@ -33,7 +33,7 @@ trait PaxosVocabulary[T] {
 
 
   // Administrative messages for initializing the consensus
-  case class ProposeValue(value: T)
+  case class ProposeValue(value: T) extends PaxosMessage
 
   // Administrative messages for querying
   case class QueryAcceptor(sender: ActorRef) extends PaxosMessage

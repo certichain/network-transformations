@@ -100,12 +100,13 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
                     val wrapMsg: PaxosMessage => Any) extends PaxosRole {
 
     private var currentReceiveFun: Receive = waitForQuery
-    final override def receiveFun: Receive = waitForQuery
+    final override def receiveFun: Receive = currentReceiveFun
 
     def waitForQuery: Receive = {
       case QueryLearner(sender) =>
         for (a <- acceptors) wrapSend(a, QueryAcceptor(actor))
         currentReceiveFun = respondToQuery(sender, Nil)
+      case ValueAcc(_, _) => // do nothing, already go the result
     }
 
     private def respondToQuery(sender: ActorRef,

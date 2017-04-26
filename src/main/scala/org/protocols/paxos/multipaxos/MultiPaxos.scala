@@ -28,7 +28,7 @@ trait MultiPaxos[T] extends SlotProtocolCombinator[T] {
   /**
     * Make a slot-based proposer actor (managing all slots)
     */
-  class MultiPaxosLearner(acceptors: Seq[ActorRef], myBallot: Ballot) extends SlotBasedActor {
+  class MultiPaxosLearner(acceptors: Seq[ActorRef]) extends SlotBasedActor {
     def createNewRoleInstance(s: Slot): PaxosRole = new LearnerRole(acceptors, self, MessageWithSlot(s, _))
   }
 
