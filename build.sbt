@@ -13,7 +13,8 @@ libraryDependencies ++= Seq(
         "com.typesafe.akka" %%  "akka-slf4j"       % akkaVersion    % "test",
         "ch.qos.logback"    %   "logback-classic"  % "1.1.3"        % "test",
         "com.typesafe.akka" %%  "akka-testkit"     % akkaVersion    % "test",
-        "org.scalatest"     %%  "scalatest"        % "2.2.4"        % "test"
+        "org.scalatest"     %%  "scalatest"        % "2.2.4"        % "test",
+        "org.scalaz" %% "scalaz-core" % "7.2.11"
 )
 
 scalacOptions ++= Seq(

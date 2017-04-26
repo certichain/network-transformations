@@ -1,0 +1,2 @@
+1. Factor out separate phases, so we could combine the messages from multiple slots
+2. Implement the "blend" protocol combinator

@@ -9,7 +9,7 @@ import scala.collection.immutable.Nil
   *
   * @author Ilya Sergey
   */
-class PaxosVocabulary[T] {
+trait PaxosVocabulary[T] {
 
   type Ballot = Int
 

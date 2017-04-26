@@ -37,11 +37,9 @@ class SingleDecreePaxosTests(_system: ActorSystem) extends TestKit(_system) with
     val proposerNum = values.length
 
     val paxosFactory = new SingleDecreePaxosFactory[A]
-    // Import message types
-    import paxosFactory.vocabulary._
+    import paxosFactory._
 
-
-    val instance = paxosFactory.createPaxosSimplePaxosInstance(system, proposerNum, acceptorNum, learnerNum)
+    val instance = paxosFactory.createPaxosInstance(system, proposerNum, acceptorNum, learnerNum)
 
     // Propose values
     val perms = values.indices.permutations
