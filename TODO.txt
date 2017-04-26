@@ -12,3 +12,14 @@ We can also explicitly split the proposer to the quorum-collecting and quorum-us
 2. Extensions for the stoppable Paxos
 
 What should be the decomposition of Paxos roles for this?
+
+
+================================================================
+
+[Some random thoughts]
+
+* At the moment, the development looks very much like Vechev et. al's framework for decomposing GC implementations
+  into independent components. Perhapse, we can have a nice diagram representing trade-offs between precision
+  (progress for specific instances) and efficiency (due to batching and over-approximation).
+
+* Following this approach, what should be the   
