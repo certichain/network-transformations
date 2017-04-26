@@ -12,25 +12,41 @@ import scala.collection.immutable.Nil
 
 trait PaxosRoles[T] extends PaxosVocabulary[T] {
 
+  /**
+    * A generic interface for Paxos roles
+    */
   sealed trait PaxosRole {
     // Abstract members to be initialized
-    val self: ActorRef
-    def initReceiveHandler: Receive
-    def wrapMsg: PaxosMessage => Any
+    protected val self: ActorRef
 
-    //
-    private var currentReceiveHandler: Receive = initReceiveHandler
-    def become(r: Receive) { currentReceiveHandler = r }
+    protected def initReceiveHandler: Receive
+
+    protected def wrapMsg: PaxosMessage => Any
+
     def receiveHandler: Receive = currentReceiveHandler
+
     // Adapt the message for the wrapping combinator
-    def wrapSend(a: ActorRef, msg: PaxosMessage) { a ! wrapMsg(msg) }
+    protected def wrapSend(a: ActorRef, msg: PaxosMessage) {
+      a ! wrapMsg(msg)
+    }
+
+    protected def become(r: Receive) {
+      currentReceiveHandler = r
+    }
+
+    private var currentReceiveHandler: Receive = initReceiveHandler
   }
 
   /** ***************************************************************/
   /** *********** Specific roles within the Paxos protocol **********/
   /** ***************************************************************/
 
-  abstract class AcceptorRole(val wrapMsg: PaxosMessage => Any) extends PaxosRole {
+
+  ////////////////////////////////////////////////////////////////////
+  //////////////////////       Acceptor      /////////////////////////
+  ////////////////////////////////////////////////////////////////////
+
+  abstract class AcceptorRole extends PaxosRole {
 
     var currentBallot: Ballot = -1
     var chosenValues: List[(Ballot, T)] = Nil
@@ -59,8 +75,11 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
   }
 
 
-  abstract class ProposerRole(val acceptors: Seq[ActorRef], val myBallot: Ballot,
-                              val wrapMsg: PaxosMessage => Any) extends PaxosRole {
+  ////////////////////////////////////////////////////////////////////
+  //////////////////////       Proposer      /////////////////////////
+  ////////////////////////////////////////////////////////////////////
+
+  abstract class ProposerRole(val acceptors: Seq[ActorRef], val myBallot: Ballot) extends PaxosRole {
 
     final override def initReceiveHandler: Receive = proposerPhase1
 
@@ -83,17 +102,15 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
             case None => v
           }
           val quorum = maxGroup.map(_._1)
-
           for (a <- quorum) wrapSend(a, Phase2A(myBallot, self, toPropose))
+          // Enter the final stage
           become(finalStage)
         } else {
           become(proposerPhase2(v, newResponses))
         }
     }
 
-    /**
-      * Now we only respond to queries about selected values
-      */
+    // Starting now we only respond to queries about selected values
     def finalStage: Receive = new PartialFunction[Any, Unit] {
       override def isDefinedAt(x: Any): Boolean = false
       override def apply(v1: Any): Unit = {}
@@ -101,8 +118,11 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
 
   }
 
+  ////////////////////////////////////////////////////////////////////
+  //////////////////////       Learner       /////////////////////////
+  ////////////////////////////////////////////////////////////////////
 
-  abstract class LearnerRole(val acceptors: Seq[ActorRef], val wrapMsg: PaxosMessage => Any) extends PaxosRole {
+  abstract class LearnerRole(val acceptors: Seq[ActorRef]) extends PaxosRole {
 
     final override def initReceiveHandler: Receive = waitForQuery
 

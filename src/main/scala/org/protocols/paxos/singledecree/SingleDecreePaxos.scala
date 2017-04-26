@@ -13,17 +13,18 @@ trait SingleDecreePaxos[T] extends PaxosRoles[T] {
 
   trait SimplePaxosRole extends Actor { this : PaxosRole =>
     override def receive: Receive = { case msg => this.receiveHandler(msg) }
+    override def wrapMsg: (PaxosMessage) => Any = id
   }
 
   /**
     * Wrapping roles into specific actors serving them
     */
 
-  class SimplePaxosAcceptor extends AcceptorRole(id) with SimplePaxosRole
+  class SimplePaxosAcceptor extends AcceptorRole with SimplePaxosRole
 
   class SimplePaxosProposer(acceptors: Seq[ActorRef], myBallot: Ballot)
-      extends ProposerRole(acceptors, myBallot, id) with SimplePaxosRole
+      extends ProposerRole(acceptors, myBallot) with SimplePaxosRole
 
-  class SimplePaxosLearner(acceptors: Seq[ActorRef]) extends LearnerRole(acceptors, id) with SimplePaxosRole
+  class SimplePaxosLearner(acceptors: Seq[ActorRef]) extends LearnerRole(acceptors) with SimplePaxosRole
 
 }

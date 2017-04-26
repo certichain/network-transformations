@@ -2,4 +2,13 @@ Working notes and things to implement for as protocol combinators
 =================================================================
 
 1. The "blend" combinator packaging together multiple messages
+
+A seemingly reasonable approach is to refactor wrapSend into just returning the messages and the recipient,
+for the top-level combinator to decide what to do with them. Then it should be able to bundle multiple proposals
+together and send the acceptors combined messages.
+
+We can also explicitly split the proposer to the quorum-collecting and quorum-using phase.
+
 2. Extensions for the stoppable Paxos
+
+What should be the decomposition of Paxos roles for this?
