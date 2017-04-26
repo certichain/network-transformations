@@ -26,7 +26,7 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
     def receiveHandler: Receive = currentReceiveHandler
 
     // Adapt the message for the wrapping combinator
-    protected def wrapSend(a: ActorRef, msg: PaxosMessage) {
+    protected def emitFor(a: ActorRef, msg: PaxosMessage) {
       a ! wrapMsg(msg)
     }
 
@@ -55,7 +55,7 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
       case Phase1A(b, l) =>
         if (b > currentBallot) {
           currentBallot = b
-          wrapSend(l, Phase1B(promise = true, self, findMaxBallotAccepted(chosenValues)))
+          emitFor(l, Phase1B(promise = true, self, findMaxBallotAccepted(chosenValues)))
         } else {
           /* do nothing */
         }
@@ -64,13 +64,13 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
           // record the value
           chosenValues = (b, v) :: chosenValues
           // we may even ignore this step
-          wrapSend(l, Phase2B(b, self, ack = true))
+          emitFor(l, Phase2B(b, self, ack = true))
         } else {
           /* do nothing */
         }
       // Send accepted request
       case QueryAcceptor(sender) =>
-        wrapSend(sender, ValueAcc(self, findMaxBallotAccepted(chosenValues)))
+        emitFor(sender, ValueAcc(self, findMaxBallotAccepted(chosenValues)))
     }
   }
 
@@ -86,7 +86,7 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
     def proposerPhase1: Receive = {
       case ProposeValue(v) =>
         // Start Paxos round with my givenballot
-        for (a <- acceptors) wrapSend(a, Phase1A(myBallot, self))
+        for (a <- acceptors) emitFor(a, Phase1A(myBallot, self))
         become(proposerPhase2(v, Nil))
     }
 
@@ -102,7 +102,7 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
             case None => v
           }
           val quorum = maxGroup.map(_._1)
-          for (a <- quorum) wrapSend(a, Phase2A(myBallot, self, toPropose))
+          for (a <- quorum) emitFor(a, Phase2A(myBallot, self, toPropose))
           // Enter the final stage
           become(finalStage)
         } else {
@@ -128,7 +128,7 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
 
     def waitForQuery: Receive = {
       case QueryLearner(sender) =>
-        for (a <- acceptors) wrapSend(a, QueryAcceptor(self))
+        for (a <- acceptors) emitFor(a, QueryAcceptor(self))
         val rq = respondToQuery(sender, Nil)
         become(rq)
       case ValueAcc(_, _) => // ignore this now, as it's irrelevant
@@ -143,10 +143,10 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
         if (maxGroup.nonEmpty && maxGroup.size > acceptors.size / 2) {
           if (maxGroup.head.isEmpty) {
             // No consensus has been reached so far, repeat the procedure from scratch
-            wrapSend(self, QueryLearner(sender))
+            emitFor(self, QueryLearner(sender))
           } else {
             // respond to the sender
-            wrapSend(sender, LearnedAgreedValue(maxGroup.head.get, self))
+            emitFor(sender, LearnedAgreedValue(maxGroup.head.get, self))
           }
           become(waitForQuery)
         } else {
