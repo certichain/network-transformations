@@ -23,13 +23,11 @@ trait SingleDecreePaxos[T] {
     var currentBallot: Ballot = -1
     var chosenValues: List[(Ballot, T)] = Nil
 
-    def lastChosenValue: Option[T] = findMaxBallotAccepted(chosenValues)
-
     override def receive: Receive = {
       case Phase1A(b, l) =>
         if (b > currentBallot) {
           currentBallot = b
-          l ! Phase1B(promise = true, self, lastChosenValue)
+          l ! Phase1B(promise = true, self, findMaxBallotAccepted(chosenValues))
         } else {
           /* do nothing */
         }
@@ -42,10 +40,9 @@ trait SingleDecreePaxos[T] {
         } else {
           /* do nothing */
         }
-
       // Send accepted request
       case QueryAcceptor(sender) =>
-        sender ! ValueAcc(self, lastChosenValue)
+        sender ! ValueAcc(self, findMaxBallotAccepted(chosenValues))
     }
   }
 
