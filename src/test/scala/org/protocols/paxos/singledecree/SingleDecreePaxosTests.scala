@@ -20,8 +20,6 @@ class SingleDecreePaxosTests(_system: ActorSystem) extends TestKit(_system) with
     system.shutdown()
   }
 
-  // TODO 2: Test the Paxos functionality
-
   s"All learners" must {
     s"agree on the same non-taken value" in {
       val values = List("A", "B", "C", "D", "E")
