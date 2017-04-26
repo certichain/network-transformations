@@ -34,7 +34,7 @@ class SingleDecreePaxosTests(_system: ActorSystem) extends TestKit(_system) with
 
   def setupAndTestInstances[A](values: List[A]): Unit = {
 
-    val acceptorNum = 3
+    val acceptorNum = 5
     val learnerNum = values.length
     val proposerNum = values.length
 
@@ -86,6 +86,12 @@ class SingleDecreePaxosTests(_system: ActorSystem) extends TestKit(_system) with
     for (LearnedAgreedValue(v, l) <- res) {
       println(s"Value from learner [$l]: $v")
     }
+
+    assert(res.size == learners.size, s"heard back from all learners")
+    assert(res.forall { case LearnedAgreedValue(v, l) => v == res.head.value },
+      s"All learners should return the same result at the end.")
+
+    instance.killAll()
   }
 
 }
