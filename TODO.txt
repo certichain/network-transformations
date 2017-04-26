@@ -1,0 +1,5 @@
+Working notes and things to implement for as protocol combinators
+=================================================================
+
+1. The "blend" combinator packaging together multiple messages
+2. Extensions for the stoppable Paxos

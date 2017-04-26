@@ -2,6 +2,8 @@ package org.protocols.paxos.singledecree
 
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestKit}
+import org.protocols.paxos.singledecree.monolithic.MonolithicSDPaxosFactory
+import org.protocols.paxos.{PaxosConfiguration, PaxosFactory}
 import org.scalatest._
 
 import scala.concurrent.duration._
@@ -11,7 +13,7 @@ import scala.concurrent.duration._
   * @author Ilya Sergey
   */
 
-class SingleDecreePaxosTests(_system: ActorSystem) extends TestKit(_system) with ImplicitSender with
+abstract class AbstractSingleDecreePaxosTests(_system: ActorSystem) extends TestKit(_system) with ImplicitSender with
     WordSpecLike with MustMatchers with BeforeAndAfterAll {
 
   def this() = this(ActorSystem("SingleDecreePaxosTests"))
@@ -20,28 +22,30 @@ class SingleDecreePaxosTests(_system: ActorSystem) extends TestKit(_system) with
     system.shutdown()
   }
 
-  s"All learners" must {
-    s"agree on the same non-taken value" in {
-      val values = List("A", "B", "C", "D", "E")
-      setupAndTestInstances(values)
-    }
+  protected def setupAndTestInstances[A](values: List[A], factory: PaxosFactory[A], acceptorNum : Int): Unit = {
 
-  }
-
-  def fact(n: Int): Int = if (n < 1) 1 else n * fact(n - 1)
-
-  def setupAndTestInstances[A](values: List[A]): Unit = {
-
-    val acceptorNum = 5
     val learnerNum = values.length
     val proposerNum = values.length
 
-    val paxosFactory = new SingleDecreePaxosFactory[A]
-    import paxosFactory._
 
-    val instance = paxosFactory.createPaxosInstance(system, proposerNum, acceptorNum, learnerNum)
+    val instance = factory.createPaxosInstance(system, proposerNum, acceptorNum, learnerNum)
+    val proposers: Seq[ActorRef] = instance.proposers
 
     // Propose values
+    proposeValues(values, factory, proposers)
+
+    // Wait for some time
+    Thread.sleep(800)
+
+    // Learn the results
+    val learners = instance.learners
+    learnAcceptedValues(learners, factory)
+
+    instance.killAll()
+  }
+
+  private def proposeValues[A](values: List[A], factory: PaxosFactory[A], proposers: Seq[ActorRef]): Unit = {
+    import factory._
     val perms = values.indices.permutations
     var permInd = perms.next()
     for (i <- 0 until (Math.random() * fact(values.size)).toInt) {
@@ -52,7 +56,7 @@ class SingleDecreePaxosTests(_system: ActorSystem) extends TestKit(_system) with
     println("[Proposing values]")
     val rs = for {(j, i) <- permInd.zip(values.indices)
                   v = values(j)
-                  p = instance.proposers(i)} yield
+                  p = proposers(i)} yield
       new Thread {
         override def run() {
           println(s"Proposing $v via $p.")
@@ -63,15 +67,13 @@ class SingleDecreePaxosTests(_system: ActorSystem) extends TestKit(_system) with
       }
     for (r <- rs) r.start()
 
+  }
 
-    // Wait for some time
-    Thread.sleep(800)
-
-    // Learn the results
+  private def learnAcceptedValues[A](learners: Seq[ActorRef], factory: PaxosFactory[A]) = {
+    import factory._
     println("")
     println("[Learning values]")
 
-    val learners = instance.learners
     for (l <- learners) {
       l ! QueryLearner(self)
     }
@@ -86,8 +88,12 @@ class SingleDecreePaxosTests(_system: ActorSystem) extends TestKit(_system) with
     assert(res.size == learners.size, s"heard back from all learners")
     assert(res.forall { case LearnedAgreedValue(v, l) => v == res.head.value },
       s"All learners should return the same result at the end.")
-
-    instance.killAll()
   }
 
+  private def fact(n: Int): Int = if (n < 1) 1 else n * fact(n - 1)
+
 }
+
+
+
+

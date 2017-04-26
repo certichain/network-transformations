@@ -1,7 +1,7 @@
-package org.protocols.paxos
+package org.protocols.paxos.singledecree.monolithic
 
-import akka.actor.Actor.Receive
 import akka.actor.{Actor, ActorRef}
+import org.protocols.paxos.PaxosVocabulary
 
 import scala.collection.immutable.Nil
 
@@ -9,37 +9,22 @@ import scala.collection.immutable.Nil
   * @author Ilya Sergey
   */
 
+trait MonolithicSingleDecreePaxos[T] extends PaxosVocabulary[T] {
+  // Instantiate messages
 
-trait PaxosRoles[T] extends PaxosVocabulary[T] {
-
-  sealed trait PaxosRole {
-    // Abstract members to be initialized
-    val self: ActorRef
-    def initReceiveHandler: Receive
-    def wrapMsg: PaxosMessage => Any
-
-    //
-    private var currentReceiveHandler: Receive = initReceiveHandler
-    def become(r: Receive) { currentReceiveHandler = r }
-    def receiveHandler: Receive = currentReceiveHandler
-    // Adapt the message for the wrapping combinator
-    def wrapSend(a: ActorRef, msg: PaxosMessage) { a ! wrapMsg(msg) }
-  }
-
-  /** ***************************************************************/
-  /** *********** Specific roles within the Paxos protocol **********/
-  /** ***************************************************************/
-
-  abstract class AcceptorRole(val wrapMsg: PaxosMessage => Any) extends PaxosRole {
+  /**
+    * An acceptor class for a Single Decree Paxos
+    */
+  class Acceptor extends Actor {
 
     var currentBallot: Ballot = -1
     var chosenValues: List[(Ballot, T)] = Nil
 
-    final override def initReceiveHandler: Receive = {
+    override def receive: Receive = {
       case Phase1A(b, l) =>
         if (b > currentBallot) {
           currentBallot = b
-          wrapSend(l, Phase1B(promise = true, self, findMaxBallotAccepted(chosenValues)))
+          l ! Phase1B(promise = true, self, findMaxBallotAccepted(chosenValues))
         } else {
           /* do nothing */
         }
@@ -48,27 +33,29 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
           // record the value
           chosenValues = (b, v) :: chosenValues
           // we may even ignore this step
-          wrapSend(l, Phase2B(b, self, ack = true))
+          l ! Phase2B(b, self, ack = true)
         } else {
           /* do nothing */
         }
       // Send accepted request
       case QueryAcceptor(sender) =>
-        wrapSend(sender, ValueAcc(self, findMaxBallotAccepted(chosenValues)))
+        sender ! ValueAcc(self, findMaxBallotAccepted(chosenValues))
     }
   }
 
-
-  abstract class ProposerRole(val acceptors: Seq[ActorRef], val myBallot: Ballot,
-                              val wrapMsg: PaxosMessage => Any) extends PaxosRole {
-
-    final override def initReceiveHandler: Receive = proposerPhase1
+  /**
+    * The proposer class, initiating the agreement procedure
+    *
+    * @param acceptors a set of acceptors in this instance
+    * @param myBallot  fixed ballot number
+    */
+  class Proposer(val acceptors: Seq[ActorRef], val myBallot: Ballot) extends Actor {
 
     def proposerPhase1: Receive = {
       case ProposeValue(v) =>
         // Start Paxos round with my givenballot
-        for (a <- acceptors) wrapSend(a, Phase1A(myBallot, self))
-        become(proposerPhase2(v, Nil))
+        for (a <- acceptors) a ! Phase1A(myBallot, self)
+        context.become(proposerPhase2(v, Nil))
     }
 
     def proposerPhase2(v: T, responses: List[(ActorRef, Option[T])]): Receive = {
@@ -84,10 +71,10 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
           }
           val quorum = maxGroup.map(_._1)
 
-          for (a <- quorum) wrapSend(a, Phase2A(myBallot, self, toPropose))
-          become(finalStage)
+          for (a <- quorum) a ! Phase2A(myBallot, self, toPropose)
+          context.become(finalStage)
         } else {
-          become(proposerPhase2(v, newResponses))
+          context.become(proposerPhase2(v, newResponses))
         }
     }
 
@@ -99,19 +86,17 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
       override def apply(v1: Any): Unit = {}
     }
 
+    override def receive: Receive = proposerPhase1
   }
 
+  class Learner(val acceptors: Seq[ActorRef]) extends Actor {
 
-  abstract class LearnerRole(val acceptors: Seq[ActorRef], val wrapMsg: PaxosMessage => Any) extends PaxosRole {
-
-    final override def initReceiveHandler: Receive = waitForQuery
+    override def receive: Receive = waitForQuery
 
     def waitForQuery: Receive = {
       case QueryLearner(sender) =>
-        for (a <- acceptors) wrapSend(a, QueryAcceptor(self))
-        val rq = respondToQuery(sender, Nil)
-        become(rq)
-      case ValueAcc(_, _) => // ignore this now, as it's irrelevant
+        for (a <- acceptors) a ! QueryAcceptor(self)
+        context.become(respondToQuery(sender, Nil))
     }
 
     private def respondToQuery(sender: ActorRef,
@@ -123,17 +108,18 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
         if (maxGroup.nonEmpty && maxGroup.size > acceptors.size / 2) {
           if (maxGroup.head.isEmpty) {
             // No consensus has been reached so far, repeat the procedure from scratch
-            wrapSend(self, QueryLearner(sender))
+            self ! QueryLearner(sender)
+            context.become(waitForQuery)
           } else {
             // respond to the sender
-            wrapSend(sender, LearnedAgreedValue(maxGroup.head.get, self))
+            sender ! LearnedAgreedValue(maxGroup.head.get, self)
+            // TODO: may also cache the result
+            context.become(waitForQuery)
           }
-          become(waitForQuery)
         } else {
-          become(respondToQuery(sender, newResults))
+          context.become(respondToQuery(sender, newResults))
         }
     }
   }
-
 
 }
