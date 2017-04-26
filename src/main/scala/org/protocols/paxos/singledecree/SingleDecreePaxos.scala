@@ -11,27 +11,25 @@ import scala.collection.immutable.Nil
 
 trait SingleDecreePaxos[T] {
   // Instantiate messages
-  val MessageModule = new PaxosVocabulary[T]
+  val vocabulary = new PaxosVocabulary[T]
 
-  import MessageModule._
+  import vocabulary._
 
+  /**
+    * An acceptor class for a Single Decree Paxos
+    */
   class Acceptor extends Actor {
 
     var currentBallot: Ballot = -1
     var chosenValues: List[(Ballot, T)] = Nil
 
-    def findMaxBallotAccepted: Option[T] = chosenValues match {
-      case Nil => None
-      case x => Some(x.maxBy(_._1)._2)
-    }
-
-    def getChosenValue: Option[T] = findMaxBallotAccepted
+    def lastChosenValue: Option[T] = findMaxBallotAccepted(chosenValues)
 
     override def receive: Receive = {
       case Phase1A(b, l) =>
         if (b > currentBallot) {
           currentBallot = b
-          l ! Phase1B(promise = true, self, findMaxBallotAccepted)
+          l ! Phase1B(promise = true, self, lastChosenValue)
         } else {
           /* do nothing */
         }
@@ -47,20 +45,26 @@ trait SingleDecreePaxos[T] {
 
       // Send accepted request
       case QueryAcceptor(sender) =>
-        sender ! AgreedValueAcc(self, getChosenValue)
+        sender ! ValueAcc(self, lastChosenValue)
     }
   }
 
-  class Proposer(val acceptors: Set[ActorRef], val myBallot: Ballot) extends Actor {
+  /**
+    * The proposer class, initiating the agreement procedure
+    *
+    * @param acceptors a set of acceptors in this instance
+    * @param myBallot  fixed ballot number
+    */
+  class Proposer(val acceptors: Seq[ActorRef], val myBallot: Ballot) extends Actor {
 
-    def initReceive: Receive = {
+    def proposerPhase1: Receive = {
       case ProposeValue(v) =>
         // Start Paxos round with my givenballot
         for (a <- acceptors) a ! Phase1A(myBallot, self)
-        context.become(proposerMainPhase(v, Nil))
+        context.become(proposerPhase2(v, Nil))
     }
 
-    def proposerMainPhase(v: T, responses: List[(ActorRef, Option[T])]): Receive = {
+    def proposerPhase2(v: T, responses: List[(ActorRef, Option[T])]): Receive = {
       case Phase1B(true, a, vOpt) =>
         val newResponses = (a, vOpt) :: responses
         // find maximal group
@@ -76,42 +80,52 @@ trait SingleDecreePaxos[T] {
           for (a <- quorum) a ! Phase2A(myBallot, self, toPropose)
           context.become(finalStage)
         } else {
-          context.become(proposerMainPhase(v, newResponses))
+          context.become(proposerPhase2(v, newResponses))
         }
     }
 
     /**
       * Now we only respond to queries about selected values
       */
-    def finalStage: Receive = {
-      case QueryProposer(sender) =>
+    def finalStage: Receive = new PartialFunction[Any, Unit] {
+      override def isDefinedAt(x: Any): Boolean = false
+      override def apply(v1: Any): Unit = {}
+    }
+
+    override def receive: Receive = proposerPhase1
+  }
+
+  class Learner(val acceptors: Seq[ActorRef]) extends Actor {
+
+    override def receive: Receive = waitForQuery
+
+    def waitForQuery: Receive = {
+      case QueryLearner(sender) =>
         for (a <- acceptors) a ! QueryAcceptor(self)
         context.become(respondToQuery(sender, Nil))
     }
 
-    def respondToQuery(sender: ActorRef,
-                       results: List[Option[T]]): Receive = {
-      case AgreedValueAcc(a, vOpt) =>
+    private def respondToQuery(sender: ActorRef,
+                               results: List[Option[T]]): Receive = {
+      case ValueAcc(a, vOpt) =>
         val newResults = vOpt :: results
         val maxGroup = newResults.groupBy(x => x).toSeq.map(_._2).maxBy(_.size)
 
         if (maxGroup.nonEmpty && maxGroup.size > acceptors.size / 2) {
-          // respond to the sender
-          sender ! AgreedValueProposer(maxGroup.head)
-          context.become(finalStage)
+          if (maxGroup.head.isEmpty) {
+            // No consensus has been reached so far, repeat the procedure from scratch
+            self ! QueryLearner(sender)
+            context.become(waitForQuery)
+          } else {
+            // respond to the sender
+            sender ! LearnedAgreedValue(maxGroup.head.get, self)
+            // TODO: may also cache the result
+            context.become(waitForQuery)
+          }
         } else {
           context.become(respondToQuery(sender, newResults))
         }
     }
-
-    override def receive: Receive = initReceive
   }
-
-  // TODO 1: implement a factory method for starting the Paxos
-  // and returning the interface object to the client
-
-  // TODO 2: factor out the phases, so we could combine the messages
-
-  // TODO 3: implement the "blend "combinator
 
 }

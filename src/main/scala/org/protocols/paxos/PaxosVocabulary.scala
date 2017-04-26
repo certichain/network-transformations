@@ -2,6 +2,8 @@ package org.protocols.paxos
 
 import akka.actor.ActorRef
 
+import scala.collection.immutable.Nil
+
 /**
   * Common vocabulary for Paxos-like protocols
   *
@@ -35,8 +37,17 @@ class PaxosVocabulary[T] {
 
   // Administrative messages for querying
   case class QueryAcceptor(sender: ActorRef) extends PaxosMessage
-  case class AgreedValueAcc(acc: ActorRef, valueOpt: Option[T]) extends PaxosMessage
+  case class ValueAcc(acc: ActorRef, valueOpt: Option[T]) extends PaxosMessage
 
-  case class QueryProposer(sender: ActorRef) extends PaxosMessage
-  case class AgreedValueProposer(valueOpt: Option[T]) extends PaxosMessage
+  case class QueryLearner(sender: ActorRef) extends PaxosMessage
+  case class LearnedAgreedValue(value: T, learner: ActorRef) extends PaxosMessage
+
+  // Some library functions
+  def findMaxBallotAccepted(chosenValues: List[(Ballot, T)]): Option[T] =
+    chosenValues match {
+      case Nil => None
+      case x => Some(x.maxBy(_._1)._2)
+    }
+
+
 }
