@@ -1,5 +1,6 @@
 package org.protocols.paxos.combinators
 
+import akka.actor.ActorRef
 import org.protocols.paxos.PaxosRoles
 
 import scala.collection.mutable
@@ -22,9 +23,7 @@ trait BundlingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
   class AcceptorCombiningActor extends DisjointSlotActor {
     private var myHighestSeenBallot: Int = -1
 
-    /**
-      * A map from slots to the corresponding role protocols
-      */
+    // A map from slots to the corresponding acceptor machines
     private val slotAcceptorMap: mutable.Map[Slot, AcceptorRole] = mutable.Map.empty
 
     override protected def getMachineForSlot(slot: Slot): AcceptorRole = {
@@ -78,6 +77,20 @@ trait BundlingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
       new AcceptorRole() {
         val self = AcceptorCombiningActor.this.self
       }
+  }
+
+  class ProposerCombiningActor(val acceptors: Seq[ActorRef], val myBallot: Ballot) extends DisjointSlotActor {
+
+    // A map from slots to the corresponding proposer machines
+    private val slotProposerMap: mutable.Map[Slot, ProposerRole] = mutable.Map.empty
+
+    // TODO: how to replicate the quorum amongs other proposer instances
+
+    override def createNewRoleInstance(s: Slot): ProposerRole =
+      new ProposerRole(acceptors, myBallot) {
+        val self = ProposerCombiningActor.this.self
+      }
+
   }
 
 }

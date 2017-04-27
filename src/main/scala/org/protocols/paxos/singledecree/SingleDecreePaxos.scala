@@ -12,7 +12,7 @@ trait SingleDecreePaxos[T] extends PaxosRoles[T] {
   trait SimplePaxosRole extends Actor { this: PaxosRole =>
     override def receive: Receive = {
       // Just send all the messages by their destinations
-      case msg => step(msg).foreach { case (a, m) => a ! m }
+      case msg if step.isDefinedAt(msg) => step(msg).foreach { case (a, m) => a ! m }
     }
   }
 

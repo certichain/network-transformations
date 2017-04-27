@@ -21,9 +21,7 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
     // Abstract members to be initialized
     protected val self: ActorRef
 
-    protected def initStepHandler: Step
-
-    def step: Step = currentStepFunction
+    def step: Step
 
     // Adapt the message for the wrapping combinator
     protected def emitOne(a: ActorRef, msg: PaxosMessage) = Seq((a, msg))
@@ -32,11 +30,6 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
 
     protected def emitZero: ToSend = Seq.empty
 
-    protected def become(r: Step) {
-      currentStepFunction = r
-    }
-
-    private var currentStepFunction: Step = initStepHandler
   }
 
   /** ***************************************************************/
@@ -44,10 +37,11 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
   /** ***************************************************************/
 
 
-  ////////////////////////////////////////////////////////////////////
-  //////////////////////       Acceptor      /////////////////////////
-  ////////////////////////////////////////////////////////////////////
-
+  /**
+    * An acceptor STS
+    *
+    * @param myStartingBallot Initial ballot to start from
+    */
   abstract class AcceptorRole(val myStartingBallot: Int = -1) extends PaxosRole {
 
     var currentBallot: Ballot = myStartingBallot
@@ -62,8 +56,7 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
       }
     }
 
-
-    final override def initStepHandler: Step = {
+    val step: Step = {
       case Phase1A(b, l) =>
         // Using non-strict inequality here for multi-paxos
         if (b >= currentBallot) {
@@ -88,39 +81,38 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
   }
 
 
-  ////////////////////////////////////////////////////////////////////
-  //////////////////////       Proposer      /////////////////////////
-  ////////////////////////////////////////////////////////////////////
-
+  /**
+    * A proposer STS
+    * @param acceptors specific acceptors
+    * @param myBallot an assigned unique ballot
+    */
   abstract class ProposerRole(val acceptors: Seq[ActorRef], val myBallot: Ballot) extends PaxosRole {
 
-    final override def initStepHandler: Step = proposerInit
-
     type Responses = List[(ActorRef, Option[(Ballot, T)])]
-    private var quorum: Option[Responses] = None
 
-    def setQuorum(rs: Responses) {
-      quorum = Some(rs)
-    }
+    private var myValueToPropose: Option[T] = None
+    private var canPropose: Boolean = true
+    def gotQuorum = myResponses.size > acceptors.size / 2
+    private var myResponses: Responses = Nil
 
-    def proposerInit: Step = {
+    //    def setQuorum(rs: Responses) {
+    //      if (rs.size > acceptors.size / 2) myResponses = rs
+    //    }
+    //    def getQuorum = myResponses
+
+    val step: Step = {
       case ProposeValue(v) =>
-        // Start Paxos round with my given ballot
-        become(proposerCollectForQuorum(v, Nil))
-        emitMany(acceptors, _ => Phase1A(myBallot, self))
-    }
-
-    def proposerCollectForQuorum(v: T, responses: List[(ActorRef, Option[(Ballot, T)])]): Step = {
-      case Phase1B(true, a, vOpt) =>
-        val newResponses = (a, vOpt) :: responses
-        // find maximal group of accepted values
-        if (newResponses.size > acceptors.size / 2) {
-          // Got the quorum
-          setQuorum(newResponses)
+        myValueToPropose = Some(v)
+        if (gotQuorum && canPropose) {
           proceedWithQuorum(v)
-          // Enter the final stage
         } else {
-          become(proposerCollectForQuorum(v, newResponses))
+          emitMany(acceptors, _ => Phase1A(myBallot, self))
+        }
+      case Phase1B(true, a, vOpt) =>
+        myResponses = if (myResponses.contains((a, vOpt))) myResponses else (a, vOpt) :: myResponses
+        if (gotQuorum && canPropose && myValueToPropose.nonEmpty) {
+          proceedWithQuorum(myValueToPropose.get)
+        } else {
           emitZero
         }
     }
@@ -131,41 +123,37 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
       * @param v value to be proposed
       * @return messages to be sent to the acceptors
       */
-    def proceedWithQuorum(v: T): ToSend = {
-      if (quorum.isEmpty || step == finalStage ||
-          quorum.get.size <= acceptors.size / 2) {
+    private def proceedWithQuorum(v: T): ToSend = {
+      if (!canPropose) {
+        throw new Exception("Cannot propose a value any more.")
+      }
+      canPropose = false
+      if (myResponses.size <= acceptors.size / 2) {
         throw new Exception("No quorum has been reached, or the proposer is no longer active")
       }
-      // found quorum
-      val nonEmptyResponses = quorum.get.map(_._2).filter(_.nonEmpty)
+
+      // Found quorum
+      val nonEmptyResponses = myResponses.map(_._2).filter(_.nonEmpty)
+
+      // Figure our what to propose
       val toPropose: T = nonEmptyResponses match {
         case Nil => v
         case rs => rs.map(_.get).maxBy(_._1)._2 // A highest-ballot proposal
       }
-      val quorumRecipients = quorum.get.map(_._1)
-      become(finalStage)
+      val quorumRecipients = myResponses.map(_._1)
       emitMany(quorumRecipients, _ => Phase2A(myBallot, self, toPropose))
     }
-
-    // Starting now we only respond to queries about selected values
-    def finalStage: Step = new PartialFunction[Any, ToSend] {
-      override def isDefinedAt(x: Any): Boolean = false
-      override def apply(v1: Any): ToSend = emitZero
-    }
-
   }
 
-  ////////////////////////////////////////////////////////////////////
-  //////////////////////       Learner       /////////////////////////
-  ////////////////////////////////////////////////////////////////////
-
+  /**
+    * A learner STS
+    * @param acceptors acceptors to learn the result from
+    */
   abstract class LearnerRole(val acceptors: Seq[ActorRef]) extends PaxosRole {
-
-    final override def initStepHandler: Step = waitForQuery
 
     def waitForQuery: Step = {
       case QueryLearner(sender) =>
-        become(respondToQuery(sender, Nil))
+        currentStepFunction = respondToQuery(sender, Nil)
         emitMany(acceptors, _ => QueryAcceptor(self))
       case ValueAcc(_, _) => emitZero // ignore this now, as it's irrelevant
     }
@@ -177,7 +165,7 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
         val maxGroup = newResults.groupBy(x => x).toSeq.map(_._2).maxBy(_.size)
 
         if (maxGroup.nonEmpty && maxGroup.size > acceptors.size / 2) {
-          become(waitForQuery)
+          currentStepFunction = waitForQuery
           if (maxGroup.head.isEmpty) {
             // No consensus has been reached so far, repeat the procedure from scratch
             emitOne(self, QueryLearner(sender))
@@ -186,10 +174,15 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
             emitOne(sender, LearnedAgreedValue(maxGroup.head.get, self))
           }
         } else {
-          become(respondToQuery(sender, newResults))
+          currentStepFunction = respondToQuery(sender, newResults)
           emitZero
         }
     }
+
+    private var currentStepFunction: Step = waitForQuery
+
+    def step: Step = currentStepFunction
+
   }
 
 
