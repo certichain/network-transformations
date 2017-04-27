@@ -115,6 +115,7 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
         } else {
           emitZero
         }
+      case Phase2B(_, _, _) => emitZero
     }
 
     /**

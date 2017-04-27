@@ -1,6 +1,6 @@
-package org.protocols.paxos.multipaxos.bundling
+package org.protocols.paxos.multipaxos.bunching
 
-import org.protocols.paxos.combinators.BundlingSlotCombinator
+import org.protocols.paxos.combinators.WideningSlotCombinator
 import org.protocols.paxos.multipaxos.disjoint.DisjointMultiPaxosFactory
 
 /**
@@ -11,7 +11,7 @@ import org.protocols.paxos.multipaxos.disjoint.DisjointMultiPaxosFactory
   */
 
 
-class AcceptorBundlingMultiPaxosFactory[T] extends DisjointMultiPaxosFactory[T] with BundlingSlotCombinator[T] {
+class AcceptorWideningMultiPaxosFactory[T] extends DisjointMultiPaxosFactory[T] with WideningSlotCombinator[T] {
   override val AcceptorClass: Class[_] = classOf[AcceptorCombiningActor]
 }
 
