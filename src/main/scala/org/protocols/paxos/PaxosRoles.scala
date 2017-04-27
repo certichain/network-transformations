@@ -53,6 +53,8 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
     var currentBallot: Ballot = myStartingBallot
     var chosenValues: List[(Ballot, T)] = Nil
 
+    //    def getLastChosenValue: Option[T] = findMaxBallotAccepted(chosenValues)
+
     // This method is _always_ safe to run, as it only reduces the set of Acceptor's behaviors
     def bumpUpBallot(b: Ballot): Unit = {
       if (b > currentBallot) {
@@ -60,7 +62,6 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
       }
     }
 
-    def getLastChosenValue: Option[T] = findMaxBallotAccepted(chosenValues)
 
     final override def initStepHandler: Step = {
       case Phase1A(b, l) =>
@@ -82,7 +83,7 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
         }
       // Send accepted request
       case QueryAcceptor(sender) =>
-        emitOne(sender, ValueAcc(self, findMaxBallotAccepted(chosenValues)))
+        emitOne(sender, ValueAcc(self, findMaxBallotAccepted(chosenValues).map(_._2)))
     }
   }
 
@@ -98,29 +99,33 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
     def proposerPhase1: Step = {
       case ProposeValue(v) =>
         // Start Paxos round with my given ballot
-        become(proposerPhase2(v, Nil))
+        become(proposerCollectResponses(v, Nil))
         emitMany(acceptors, _ => Phase1A(myBallot, self))
     }
 
-    def proposerPhase2(v: T, responses: List[(ActorRef, Option[T])]): Step = {
+    def proposerCollectResponses(v: T, responses: List[(ActorRef, Option[(Ballot, T)])]): Step = {
       case Phase1B(true, a, vOpt) =>
         val newResponses = (a, vOpt) :: responses
-        // find maximal group
-        val maxGroup = newResponses.groupBy(_._2).toList.map(_._2).maxBy(_.size)
-        if (maxGroup.nonEmpty && maxGroup.size > acceptors.size / 2) {
-          // found quorum
-          val toPropose = maxGroup.head._2 match {
-            case Some(w) => w
-            case None => v
-          }
-          val quorum = maxGroup.map(_._1)
-          become(finalStage)
-          emitMany(quorum, _ => Phase2A(myBallot, self, toPropose))
+        // find maximal group of accepted values
+        if (newResponses.size > acceptors.size / 2) {
+          processQuorum(v, newResponses)
           // Enter the final stage
         } else {
-          become(proposerPhase2(v, newResponses))
+          become(proposerCollectResponses(v, newResponses))
           emitZero
         }
+    }
+
+    def processQuorum(v: T, responses: List[(ActorRef, Option[(Ballot, T)])]) = {
+      // found quorum
+      val nonEmptyResponses = responses.map(_._2).filter(_.nonEmpty)
+      val toPropose: T = nonEmptyResponses match {
+        case Nil => v
+        case rs => rs.map(_.get).maxBy(_._1)._2 // A highest-ballot proposal
+      }
+      val quorum = responses.map(_._1)
+      become(finalStage)
+      emitMany(quorum, _ => Phase2A(myBallot, self, toPropose))
     }
 
     // Starting now we only respond to queries about selected values

@@ -46,14 +46,29 @@ trait BundlingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
     override def receive: Receive = {
       case MessageForSlot(slot, msg@Phase1A(b, l)) =>
         // Update my largest seen ballot with respect to this ballot,
-        // The following will be noop if b <= myHighestSeenBallot
+        // The following will be no-op if b <= myHighestSeenBallot
         myHighestSeenBallot = Math.max(myHighestSeenBallot, b)
 
         // Get the appropriate role instance, maybe updating it for the last ballot as we go.
         // so the acceptor will only consider ballots larger than myHighestSeenBallot
-        val roleInstance = getMachineForSlot(slot)
-        // Send back the results
-        roleInstance.step(msg).foreach { case (a, m) => a ! MessageForSlot(slot, m) }
+
+        /**
+          * [REMARK]
+          * Here, it would be perfectly safe to send back only the result for `slot`, but since we have bumped
+          * up all our acceptor instances, we can as well inform this proposer about all values we have accepted for
+          * any slots ever.
+          *
+          * TODO: prove that this is a safe transformation from sending the response just fortheis specific `slot`.
+          * As tests show, with the unmodified proposer, this has no effect, as other messages are being ignored anyway
+          * (since we haven't asked for them).
+          *
+          * [REMARK] This is a good candidate for "redundancy" transformation, enabled by monotonicity of the system.
+          */
+        for (s <- slotAcceptorMap.keySet + slot) {
+          val roleInstance = getMachineForSlot(s)
+          // Send back the results for all slots
+          roleInstance.step(msg).foreach { case (a, m) => a ! MessageForSlot(s, m) }
+        }
 
       case m =>
         super.receive(m)

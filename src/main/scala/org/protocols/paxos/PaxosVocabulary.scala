@@ -19,9 +19,8 @@ trait PaxosVocabulary[T] {
                      proposer: ActorRef) extends PaxosMessage
 
   case class Phase1B(promise: Boolean,
-                     // highestBallot: Ballot,
                      acceptor: ActorRef,
-                     valueOpt: Option[T]) extends PaxosMessage
+                     valueOpt: Option[(Ballot, T)]) extends PaxosMessage
 
   case class Phase2A(ballot: Ballot,
                      proposer: ActorRef,
@@ -43,10 +42,10 @@ trait PaxosVocabulary[T] {
   case class LearnedAgreedValue(value: T, learner: ActorRef) extends PaxosMessage
 
   // Some library functions
-  def findMaxBallotAccepted(chosenValues: List[(Ballot, T)]): Option[T] =
+  def findMaxBallotAccepted(chosenValues: List[(Ballot, T)]): Option[(Ballot, T)] =
     chosenValues match {
       case Nil => None
-      case x => Some(x.maxBy(_._1)._2)
+      case x => Some(x.maxBy(_._1))
     }
 
 

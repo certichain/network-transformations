@@ -38,7 +38,8 @@ trait SlotReplicatingCombinator[T] extends PaxosRoles[T] {
     def createNewRoleInstance(s: Slot): PaxosRole
 
     override def receive: Receive = {
-      case MessageForSlot(slot, msg) =>
+      case MessageForSlot(slot, msg)
+        if getMachineForSlot(slot).step.isDefinedAt(msg) =>
         // Get the appropriate role instance
         val roleInstance = getMachineForSlot(slot)
         val toSend = roleInstance.step(msg)

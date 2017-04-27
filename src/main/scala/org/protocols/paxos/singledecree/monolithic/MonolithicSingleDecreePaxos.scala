@@ -39,7 +39,7 @@ trait MonolithicSingleDecreePaxos[T] extends PaxosVocabulary[T] {
         }
       // Send accepted request
       case QueryAcceptor(sender) =>
-        sender ! ValueAcc(self, findMaxBallotAccepted(chosenValues))
+        sender ! ValueAcc(self, findMaxBallotAccepted(chosenValues).map(_._2))
     }
   }
 
@@ -58,18 +58,18 @@ trait MonolithicSingleDecreePaxos[T] extends PaxosVocabulary[T] {
         context.become(proposerPhase2(v, Nil))
     }
 
-    def proposerPhase2(v: T, responses: List[(ActorRef, Option[T])]): Receive = {
+    def proposerPhase2(v: T, responses: List[(ActorRef, Option[(Ballot, T)])]): Receive = {
       case Phase1B(true, a, vOpt) =>
         val newResponses = (a, vOpt) :: responses
         // find maximal group
-        val maxGroup = newResponses.groupBy(_._2).toList.map(_._2).maxBy(_.size)
-        if (maxGroup.nonEmpty && maxGroup.size > acceptors.size / 2) {
+        if (newResponses.size > acceptors.size / 2) {
           // found quorum
-          val toPropose = maxGroup.head._2 match {
-            case Some(w) => w
-            case None => v
+          val nonEmptyResponses = responses.map(_._2).filter(_.nonEmpty)
+          val toPropose: T = nonEmptyResponses match {
+            case Nil => v
+            case rs => rs.map(_.get).maxBy(_._1)._2 // A highest-ballot proposal
           }
-          val quorum = maxGroup.map(_._1)
+          val quorum = responses.map(_._1)
 
           for (a <- quorum) a ! Phase2A(myBallot, self, toPropose)
           context.become(finalStage)
