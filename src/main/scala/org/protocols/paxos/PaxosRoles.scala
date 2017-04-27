@@ -21,7 +21,7 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
     // Abstract members to be initialized
     protected val self: ActorRef
 
-    protected def initReceiveHandler: Step
+    protected def initStepHandler: Step
 
     def step: Step = currentStepFunction
 
@@ -36,7 +36,7 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
       currentStepFunction = r
     }
 
-    private var currentStepFunction: Step = initReceiveHandler
+    private var currentStepFunction: Step = initStepHandler
   }
 
   /** ***************************************************************/
@@ -48,15 +48,20 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
   //////////////////////       Acceptor      /////////////////////////
   ////////////////////////////////////////////////////////////////////
 
-  abstract class AcceptorRole extends PaxosRole {
+  abstract class AcceptorRole(val myStartingBallot : Int = -1) extends PaxosRole {
 
-    var currentBallot: Ballot = -1
+    var currentBallot: Ballot = myStartingBallot
     var chosenValues: List[(Ballot, T)] = Nil
 
-    final override def initReceiveHandler: Step = {
+    // This method is _always_ safe to run, as it only reduces the set of Acceptor's behaviors
+    def bumpUpBallot (b : Ballot): Unit = {
+      if (b > currentBallot) {currentBallot = b}
+    }
+
+    final override def initStepHandler: Step = {
       case Phase1A(b, l) =>
         if (b > currentBallot) {
-          currentBallot = b
+          bumpUpBallot(b)
           emitOne(l, Phase1B(promise = true, self, findMaxBallotAccepted(chosenValues)))
         } else {
           emitZero
@@ -83,7 +88,7 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
 
   abstract class ProposerRole(val acceptors: Seq[ActorRef], val myBallot: Ballot) extends PaxosRole {
 
-    final override def initReceiveHandler: Step = proposerPhase1
+    final override def initStepHandler: Step = proposerPhase1
 
     def proposerPhase1: Step = {
       case ProposeValue(v) =>
@@ -127,7 +132,7 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
 
   abstract class LearnerRole(val acceptors: Seq[ActorRef]) extends PaxosRole {
 
-    final override def initReceiveHandler: Step = waitForQuery
+    final override def initStepHandler: Step = waitForQuery
 
     def waitForQuery: Step = {
       case QueryLearner(sender) =>

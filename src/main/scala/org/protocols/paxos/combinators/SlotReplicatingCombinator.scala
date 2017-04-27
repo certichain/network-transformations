@@ -11,14 +11,12 @@ import org.protocols.paxos.PaxosRoles
   */
 
 
-trait SlotProtocolCombinator[T] extends PaxosRoles[T] {
+trait SlotReplicatingCombinator[T] extends PaxosRoles[T] {
 
   type Slot = Int
   type MsgType = PaxosMessage
 
-  case class MessageWithSlot(slot: Int, msg: MsgType)
-
-  trait SlotBasedActor extends Actor {
+  trait DisjointSlotActor extends Actor {
 
     import scala.collection.mutable.{Map => MMap}
 
@@ -27,21 +25,27 @@ trait SlotProtocolCombinator[T] extends PaxosRoles[T] {
       */
     private val slotMachineMap: MMap[Slot, PaxosRole] = MMap.empty
 
-    override def receive: Receive = {
-      case MessageWithSlot(slot, msg) =>
-        // Get the appropriate role instance
-        val roleInstance = slotMachineMap.get(slot) match {
-          case Some(role) => role
-          case None =>
-            val role = createNewRoleInstance(slot)
-            slotMachineMap.update(slot, role)
-            role
-        }
-        val toSend = roleInstance.step(msg)
-        toSend.foreach{case (a, m) => a ! MessageWithSlot(slot, m)}
+    protected def getMachineForSlot(slot: Slot): PaxosRole = {
+      slotMachineMap.get(slot) match {
+        case Some(role) => role
+        case None =>
+          val role = createNewRoleInstance(slot)
+          slotMachineMap.update(slot, role)
+          role
+      }
     }
 
     def createNewRoleInstance(s: Slot): PaxosRole
-  }
 
+    override def receive: Receive = {
+      case MessageForSlot(slot, msg) =>
+        // Get the appropriate role instance
+        val roleInstance = getMachineForSlot(slot)
+        val toSend = roleInstance.step(msg)
+        toSend.foreach { case (a, m) => a ! MessageForSlot(slot, m) }
+    }
+  }
 }
+
+case class MessageForSlot[M](slot: Int, msg: M)
+
