@@ -3,8 +3,6 @@ package org.protocols.paxos.multipaxos
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestKit}
 import org.protocols.paxos.combinators.MessageForSlot
-import org.protocols.paxos.multipaxos.bundling.AcceptorBundlingMultiPaxosFactory
-import org.protocols.paxos.multipaxos.disjoint.DisjointMultiPaxosFactory
 import org.protocols.paxos.{PaxosConfiguration, PaxosFactory}
 import org.scalatest._
 
@@ -27,7 +25,8 @@ abstract class GenericMultiPaxosTests(_system: ActorSystem) extends TestKit(_sys
 
   val testMap1 = Map(1 -> List("A", "B", "C", "D", "E"),
     2 -> List("Moscow", "Madrid", "London", "Kyiv", "Paris"),
-    3 -> List("Cat", "Dog", "Hamster", "Fish", "Turtle"))
+    3 -> List("Cat", "Dog", "Hamster", "Fish", "Turtle"),
+    4 -> List("UCL", "Imperial", "Kings", "Cambridge", "Oxford"))
 
   def setupAndTestInstances[A](slotValueMap: Map[Int, List[A]], factory: PaxosFactory[A]): Unit = {
     // TODO generalize this
@@ -41,6 +40,7 @@ abstract class GenericMultiPaxosTests(_system: ActorSystem) extends TestKit(_sys
     // Wait for some time
     Thread.sleep(400)
     learnAcceptedValues(slotValueMap, instance, factory)
+    afterAll()
   }
 
 

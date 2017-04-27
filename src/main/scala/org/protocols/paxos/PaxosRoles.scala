@@ -48,19 +48,24 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
   //////////////////////       Acceptor      /////////////////////////
   ////////////////////////////////////////////////////////////////////
 
-  abstract class AcceptorRole(val myStartingBallot : Int = -1) extends PaxosRole {
+  abstract class AcceptorRole(val myStartingBallot: Int = -1) extends PaxosRole {
 
     var currentBallot: Ballot = myStartingBallot
     var chosenValues: List[(Ballot, T)] = Nil
 
     // This method is _always_ safe to run, as it only reduces the set of Acceptor's behaviors
-    def bumpUpBallot (b : Ballot): Unit = {
-      if (b > currentBallot) {currentBallot = b}
+    def bumpUpBallot(b: Ballot): Unit = {
+      if (b > currentBallot) {
+        currentBallot = b
+      }
     }
+
+    def getLastChosenValue: Option[T] = findMaxBallotAccepted(chosenValues)
 
     final override def initStepHandler: Step = {
       case Phase1A(b, l) =>
-        if (b > currentBallot) {
+        // Using non-strict inequality here for multi-paxos
+        if (b >= currentBallot) {
           bumpUpBallot(b)
           emitOne(l, Phase1B(promise = true, self, findMaxBallotAccepted(chosenValues)))
         } else {

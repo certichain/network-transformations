@@ -42,6 +42,7 @@ abstract class AbstractSingleDecreePaxosTests(_system: ActorSystem) extends Test
     learnAcceptedValues(learners, factory)
 
     instance.killAll()
+    afterAll()
   }
 
   private def proposeValues[A](values: List[A], factory: PaxosFactory[A], proposers: Seq[ActorRef]): Unit = {

@@ -14,6 +14,10 @@ trait BundlingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
     * This is a tailored actor that gives special treatment to Phase1a messages for acceptors:
     * - It bumps up all acceptors' current ballot according to what has been last;
     * - It keeps track of the highest seen ballot as an internal variable.
+    *
+    * The (lazy) invariant of this actor is that all acceptor instances, controlled by it, are operating as their
+    * highest seen ballots are the same as myHighestSeenBallot (which is ensured via getMachineForSlot).
+    *
     */
   class AcceptorCombiningActor extends DisjointSlotActor {
     private var myHighestSeenBallot: Int = -1
@@ -23,12 +27,13 @@ trait BundlingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
       */
     private val slotAcceptorMap: mutable.Map[Slot, AcceptorRole] = mutable.Map.empty
 
-    protected def getAcceptorForSlot(slot: Slot): PaxosRole = {
+    override protected def getMachineForSlot(slot: Slot): AcceptorRole = {
       val role = slotAcceptorMap.get(slot) match {
-        case Some(r) => r.bumpUpBallot(myHighestSeenBallot); r
+        case Some(r) => r
         case None => createNewRoleInstance(slot)
       }
-      // Update the role for the slot
+      // Update the role for the slot for the highest seen ballot
+      role.bumpUpBallot(myHighestSeenBallot)
       slotAcceptorMap.update(slot, role)
       role
     }
@@ -40,21 +45,22 @@ trait BundlingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
       */
     override def receive: Receive = {
       case MessageForSlot(slot, msg@Phase1A(b, l)) =>
-        // Get the appropriate role instance, maybe updating it as we go.
-        // so the acceptor will only consider ballots larger than myHighestSeenBallot
-        val roleInstance = getAcceptorForSlot(slot)
-        // Perform a step
-        val toSend = roleInstance.step(msg)
         // Update my largest seen ballot with respect to this ballot,
         // The following will be noop if b <= myHighestSeenBallot
         myHighestSeenBallot = Math.max(myHighestSeenBallot, b)
+
+        // Get the appropriate role instance, maybe updating it for the last ballot as we go.
+        // so the acceptor will only consider ballots larger than myHighestSeenBallot
+        val roleInstance = getMachineForSlot(slot)
         // Send back the results
-        toSend.foreach { case (a, m) => a ! MessageForSlot(slot, m) }
-      case m => super.receive(m)
+        roleInstance.step(msg).foreach { case (a, m) => a ! MessageForSlot(slot, m) }
+
+      case m =>
+        super.receive(m)
     }
 
     override def createNewRoleInstance(s: Slot): AcceptorRole =
-      new AcceptorRole(myHighestSeenBallot) {
+      new AcceptorRole() {
         val self = AcceptorCombiningActor.this.self
       }
   }

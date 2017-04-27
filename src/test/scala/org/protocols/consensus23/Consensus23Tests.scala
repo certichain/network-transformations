@@ -58,7 +58,7 @@ class Consensus23Tests(_system: ActorSystem) extends TestKit(_system) with Impli
       assert(vopt == expectedResult, s"the result of consensus should be $expectedResult")
     }
     println()
-
+    afterAll()
   }
 
   def generateNodes[A](round: Int, values: List[A]): IndexedSeq[ActorRef] =

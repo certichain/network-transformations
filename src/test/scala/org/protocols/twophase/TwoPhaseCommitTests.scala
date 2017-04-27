@@ -58,7 +58,6 @@ class TwoPhaseCommitTests(_system: ActorSystem) extends TestKit(_system) with Im
     }
 
     println()
-
   }
 
   def generatePeons[A](round: Int, n: Int, cond: Int => Int => Boolean): IndexedSeq[ActorRef] =
