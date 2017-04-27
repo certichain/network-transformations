@@ -6,7 +6,7 @@ import org.protocols.paxos.multipaxos.bunching.AcceptorWideningMultiPaxosFactory
   * @author Ilya Sergey
   */
 
-class AcceptorWideningMultiPaxosTests extends GenericMultiPaxosTests {
+class WideningMultiPaxosTests extends GenericMultiPaxosTests {
 
   s"All learners in a fully Acceptor-bundling Multi Paxos" must {
     s"agree on the same non-taken value" in {

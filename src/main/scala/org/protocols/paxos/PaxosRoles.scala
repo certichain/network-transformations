@@ -83,8 +83,9 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
 
   /**
     * A proposer STS
+    *
     * @param acceptors specific acceptors
-    * @param myBallot an assigned unique ballot
+    * @param myBallot  an assigned unique ballot
     */
   abstract class ProposerRole(val acceptors: Seq[ActorRef], val myBallot: Ballot) extends PaxosRole {
 
@@ -95,21 +96,23 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
     def gotQuorum = myResponses.size > acceptors.size / 2
     private var myResponses: Responses = Nil
 
-    //    def setQuorum(rs: Responses) {
-    //      if (rs.size > acceptors.size / 2) myResponses = rs
-    //    }
-    //    def getQuorum = myResponses
+    def unconvincedAcceptors = acceptors.filter(a => !myResponses.exists(_._1 == a))
+
+    def setResponses(rs: Responses) {
+      if (myResponses.isEmpty) myResponses = rs
+    }
 
     val step: Step = {
       case ProposeValue(v) =>
-        myValueToPropose = Some(v)
+        if (myValueToPropose.isEmpty) myValueToPropose = Some(v)
         if (gotQuorum && canPropose) {
           proceedWithQuorum(v)
         } else {
-          emitMany(acceptors, _ => Phase1A(myBallot, self))
+          emitMany(unconvincedAcceptors, _ => Phase1A(myBallot, self))
         }
       case Phase1B(true, a, vOpt) =>
-        myResponses = if (myResponses.contains((a, vOpt))) myResponses else (a, vOpt) :: myResponses
+        // Record a response if haven't yet seen it
+        myResponses = if (myResponses.exists(_._1 == a)) myResponses else (a, vOpt) :: myResponses
         if (gotQuorum && canPropose && myValueToPropose.nonEmpty) {
           proceedWithQuorum(myValueToPropose.get)
         } else {
@@ -148,6 +151,7 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
 
   /**
     * A learner STS
+    *
     * @param acceptors acceptors to learn the result from
     */
   abstract class LearnerRole(val acceptors: Seq[ActorRef]) extends PaxosRole {

@@ -26,7 +26,8 @@ abstract class GenericMultiPaxosTests(_system: ActorSystem) extends TestKit(_sys
   val testMap1 = Map(1 -> List("A", "B", "C", "D", "E"),
     2 -> List("Moscow", "Madrid", "London", "Kyiv", "Paris"),
     3 -> List("Cat", "Dog", "Hamster", "Fish", "Turtle"),
-    4 -> List("UCL", "Imperial", "Kings", "Cambridge", "Oxford"))
+    4 -> List("Bread", "Milk", "Kefir", "Sausage", "Beer"),
+    5 -> List("UCL", "Imperial", "Kings", "Cambridge", "Oxford"))
 
   def setupAndTestInstances[A](slotValueMap: Map[Int, List[A]], factory: PaxosFactory[A]): Unit = {
     // TODO generalize this
@@ -35,6 +36,8 @@ abstract class GenericMultiPaxosTests(_system: ActorSystem) extends TestKit(_sys
     val proposerNum = 5
 
     val instance = factory.createPaxosInstance(system, proposerNum, acceptorNum, learnerNum)
+    println("")
+
     proposeValuesForSlots(slotValueMap, instance, factory)
 
     // Wait for some time
@@ -46,8 +49,10 @@ abstract class GenericMultiPaxosTests(_system: ActorSystem) extends TestKit(_sys
 
   private def proposeValuesForSlots[A](slotValueMap: Map[Int, List[A]],
                                        instance: PaxosConfiguration, factory: PaxosFactory[A]) = {
+
     import factory._
-    for ((slot, values) <- slotValueMap) {
+
+    val threadss: Seq[Seq[Thread]] = for ((slot, values) <- slotValueMap.toSeq) yield {
       // Propose values for this slot
       val perms = values.indices.permutations
       var permInd = perms.next()
@@ -55,22 +60,22 @@ abstract class GenericMultiPaxosTests(_system: ActorSystem) extends TestKit(_sys
         permInd = perms.next()
       }
 
-      val rs = for {(j, i) <- permInd.zip(values.indices)
-                    v = values(j)
-                    p = instance.proposers(i)} yield
+      // Inner threads proposing specific values for a fixed slot
+      for {(j, i) <- permInd.zip(values.indices)
+           v = values(j)
+           p = instance.proposers(i)} yield
         new Thread {
           override def run() {
-            println(s"Proposing $v via $p.")
+            println(s"Proposing for slot $slot via ${p.path.name} value $v.")
             // Some randomized delays to compensate for ballot distribution
             Thread.sleep((values.size - j + i) * 5, 0)
             p ! MessageForSlot(slot, ProposeValue(v))
           }
         }
-
-      println("")
-      println(s"[Proposing values for slot $slot]")
-      for (r <- rs) r.start()
     }
+
+    for (t <- threadss.flatten.toSet[Thread]) t.start()
+
   }
 
 
@@ -79,7 +84,7 @@ abstract class GenericMultiPaxosTests(_system: ActorSystem) extends TestKit(_sys
     import factory._
     val learners = instance.learners
 
-    for ((slot, _) <- slotValueMap) {
+    for ((slot, _) <- slotValueMap.toSeq.sortBy(_._1)) {
 
       // Learn the results
       println("")
@@ -93,7 +98,7 @@ abstract class GenericMultiPaxosTests(_system: ActorSystem) extends TestKit(_sys
       val res = receiveN(learners.size, 5 seconds).asInstanceOf[Seq[MessageForSlot[PaxosMessage]]]
 
       for (MessageForSlot(s, LearnedAgreedValue(v, l)) <- res) {
-        println(s"Value for a slot $s from learner [$l]: $v")
+        println(s"Value for a slot $s learnt via ${l.path.name}: $v")
       }
 
       assert(res.size == learners.size, s"heard back from all learners")
