@@ -94,38 +94,57 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
 
   abstract class ProposerRole(val acceptors: Seq[ActorRef], val myBallot: Ballot) extends PaxosRole {
 
-    final override def initStepHandler: Step = proposerPhase1
+    final override def initStepHandler: Step = proposerInit
 
-    def proposerPhase1: Step = {
+    type Responses = List[(ActorRef, Option[(Ballot, T)])]
+    private var quorum: Option[Responses] = None
+
+    def setQuorum(rs: Responses) {
+      quorum = Some(rs)
+    }
+
+    def proposerInit: Step = {
       case ProposeValue(v) =>
         // Start Paxos round with my given ballot
-        become(proposerCollectResponses(v, Nil))
+        become(proposerCollectForQuorum(v, Nil))
         emitMany(acceptors, _ => Phase1A(myBallot, self))
     }
 
-    def proposerCollectResponses(v: T, responses: List[(ActorRef, Option[(Ballot, T)])]): Step = {
+    def proposerCollectForQuorum(v: T, responses: List[(ActorRef, Option[(Ballot, T)])]): Step = {
       case Phase1B(true, a, vOpt) =>
         val newResponses = (a, vOpt) :: responses
         // find maximal group of accepted values
         if (newResponses.size > acceptors.size / 2) {
-          processQuorum(v, newResponses)
+          // Got the quorum
+          setQuorum(newResponses)
+          proceedWithQuorum(v)
           // Enter the final stage
         } else {
-          become(proposerCollectResponses(v, newResponses))
+          become(proposerCollectForQuorum(v, newResponses))
           emitZero
         }
     }
 
-    def processQuorum(v: T, responses: List[(ActorRef, Option[(Ballot, T)])]) = {
+    /**
+      * This method is a point-cut to short-circuit the `proposerCollectForQuorum` stage
+      *
+      * @param v value to be proposed
+      * @return messages to be sent to the acceptors
+      */
+    def proceedWithQuorum(v: T): ToSend = {
+      if (quorum.isEmpty || step == finalStage ||
+          quorum.get.size <= acceptors.size / 2) {
+        throw new Exception("No quorum has been reached, or the proposer is no longer active")
+      }
       // found quorum
-      val nonEmptyResponses = responses.map(_._2).filter(_.nonEmpty)
+      val nonEmptyResponses = quorum.get.map(_._2).filter(_.nonEmpty)
       val toPropose: T = nonEmptyResponses match {
         case Nil => v
         case rs => rs.map(_.get).maxBy(_._1)._2 // A highest-ballot proposal
       }
-      val quorum = responses.map(_._1)
+      val quorumRecipients = quorum.get.map(_._1)
       become(finalStage)
-      emitMany(quorum, _ => Phase2A(myBallot, self, toPropose))
+      emitMany(quorumRecipients, _ => Phase2A(myBallot, self, toPropose))
     }
 
     // Starting now we only respond to queries about selected values
