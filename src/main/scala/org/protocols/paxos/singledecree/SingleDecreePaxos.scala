@@ -9,11 +9,11 @@ import org.protocols.paxos.PaxosRoles
 
 trait SingleDecreePaxos[T] extends PaxosRoles[T] {
 
-  private def id[A](t: A) = t
-
-  trait SimplePaxosRole extends Actor { this : PaxosRole =>
-    override def receive: Receive = { case msg => this.receiveHandler(msg) }
-    override def wrapMsg: (PaxosMessage) => Any = id
+  trait SimplePaxosRole extends Actor { this: PaxosRole =>
+    override def receive: Receive = {
+      // Just send all the messages by their destinations
+      case msg => step(msg).foreach { case (a, m) => a ! m }
+    }
   }
 
   /**

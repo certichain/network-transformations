@@ -37,7 +37,8 @@ trait SlotProtocolCombinator[T] extends PaxosRoles[T] {
             slotMachineMap.update(slot, role)
             role
         }
-        roleInstance.receiveHandler(msg)
+        val toSend = roleInstance.step(msg)
+        toSend.foreach{case (a, m) => a ! MessageWithSlot(slot, m)}
     }
 
     def createNewRoleInstance(s: Slot): PaxosRole
