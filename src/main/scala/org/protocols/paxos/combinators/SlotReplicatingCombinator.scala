@@ -23,7 +23,7 @@ trait SlotReplicatingCombinator[T] extends PaxosRoles[T] {
     /**
       * A map from slots to the corresponding role protocols
       */
-    private val slotMachineMap: MMap[Slot, PaxosRole] = MMap.empty
+    protected val slotMachineMap: MMap[Slot, PaxosRole] = MMap.empty
 
     protected def getMachineForSlot(slot: Slot): PaxosRole = {
       slotMachineMap.get(slot) match {

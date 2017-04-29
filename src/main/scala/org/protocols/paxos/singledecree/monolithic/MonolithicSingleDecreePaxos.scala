@@ -28,7 +28,7 @@ trait MonolithicSingleDecreePaxos[T] extends PaxosVocabulary[T] {
         } else {
           /* do nothing */
         }
-      case Phase2A(b, l, v, _) =>
+      case m@Phase2A(b, l, v, _) =>
         if (b == currentBallot) {
           // record the value
           chosenValues = (b, v) :: chosenValues

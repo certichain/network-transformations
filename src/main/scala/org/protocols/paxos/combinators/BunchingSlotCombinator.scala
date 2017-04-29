@@ -81,12 +81,19 @@ trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
         // so we record him as a convinced acceptor for all the slots
         myConvincedAcceptors.add(acc)
 
-        // Process all slot values
-        for ((s, vOpt) <- slotVals) {
+        // This is the most important part: it first executes all of the machines' steps,
+        // so the effects (like computing the right val2a) will be in effect
+        val toSendAll: Seq[(Slot, ToSend)] = for ((s, vOpt) <- slotVals) yield {
           val roleInstance = getMachineForSlot(s)
-          val toSend = roleInstance.step(Phase1B(true, acc, vOpt))
-          postProcess(s, toSend).foreach { case (a, m) => a ! MessageForSlot(s, m) }
+          (s, roleInstance.step(Phase1B(true, acc, vOpt)))
         }
+
+        // Now, the post-processing is done with all proposer-machines in the updated state
+        toSendAll.foreach { case (s, toSend) =>
+          val postProcessed = postProcess(s, toSend)
+          postProcessed.foreach { case (a, m) => a ! MessageForSlot(s, m) }
+        }
+
       // If there was a non-trivial value accepted, it means the corresponding proposer at the corresponding
       // will be updated for it. Yet, we still need to bring freshly allocated
       // proposer up to date wrt. convinced acceptors, hence the update in `createNewRoleInstance`
@@ -97,13 +104,9 @@ trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
 
 
     override def createNewRoleInstance(s: Slot): ProposerRole = {
-      val proposer = new ProposerRole(acceptors, myBallot) {
+      new ProposerRole(acceptors, myBallot) {
         val self = ProposerBunchingActor.this.self
       }
-      // [REMARK] It's important to say that here we preserve monotonicity of consensus
-      // but short-circuiting the proposer logic
-      proposer.setResponses(myConvincedAcceptors.map((_, None)).toList)
-      proposer
     }
 
   }

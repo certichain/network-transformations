@@ -3,6 +3,8 @@ package org.protocols.paxos.combinators
 import akka.actor.ActorRef
 import org.protocols.paxos.PaxosRoles
 
+import scala.collection.Map
+
 /**
   * A combinator for stoppable functionality
   *
@@ -23,9 +25,6 @@ trait StoppableSlotCombinator[T] extends BunchingSlotCombinator[DataOrStop[T]] w
       * A map storing all proposed values along with the ballots for
       * the value that has been replicated (i.e., mbal2a from the Stoppable- Paos paper)
       */
-    case class ProposeRecord(mBal: Ballot, dataOrStop: DataOrStop[T])
-    private val mySlotToProposedVal: MMap[Slot, ProposeRecord] = MMap.empty
-
     /**
       * Analyse the output of the proposer in order to decide whether to forward it or not;
       *
@@ -33,40 +32,51 @@ trait StoppableSlotCombinator[T] extends BunchingSlotCombinator[DataOrStop[T]] w
       */
     override def postProcess(i: Slot, toSend: ToSend): ToSend = toSend match {
       // Only trigger if we're dealing with the Phase2A message
-      case p2as@((_, Phase2A(_, _, _, _)) :: _) =>
+      case p2as@((_, Phase2A(_, _, _, mbal_i)) :: _) =>
+
         // Simple sanity check
         assert(p2as.forall(_._2.isInstanceOf[Phase2A]), s"All messages should be Phase2A:\n$p2as")
-        val (_, Phase2A(_, _, data, mbal)) = p2as.head // all other are identical
+        val (_, Phase2A(_, _, data, _)) = p2as.head // all other are identical
 
-        // Update record for this send
-        for ((a, Phase2A(_, _, data, mbal_i)) <- p2as) {
-          mySlotToProposedVal.update(i, ProposeRecord(mbal_i, data))
-        }
+        // Get slot/proposal information
+        val slotToProposedVal: Map[Slot, (Option[DataOrStop[T]], Ballot)] =
+          slotMachineMap.mapValues { p =>
+            val (d, bal, _) = p.asInstanceOf[ProposerRole].val2a(None)
+            (d, bal)
+          }
 
         // Now the most interesting stage: decide whether we can send `stop`
         data match {
           // Only forward the messages if there is no preceding stop command
           case Data(d) =>
-            val earlierSlotsAreNotStops = mySlotToProposedVal.forall {
+            val earlierStop = slotToProposedVal.exists {
               // All slots j < i are not stop commands
-              case (j, ProposeRecord(_, v)) => j >= i || !v.isStop
+              case (j, (vOpt, mbal_j)) => j < i && vOpt.nonEmpty && vOpt.get.isStop
             }
-
-            if (earlierSlotsAreNotStops) p2as else Nil
+            if (earlierStop) createVoidMessages(p2as, "Data (Earlier Stop)") else p2as
 
           // Decide whether we can emit stop given our accumulated record for slots
-          case Stop =>
-            val existsLaterNonStopSlot = mySlotToProposedVal.exists {
-              // All slots j > i are not slot commands
-              case (j, ProposeRecord(mbal_j, v)) => j > i || !v.isStop
+          case Stop(s) =>
+            val shouldVoidStop = slotToProposedVal.exists {
+              // A condition from Stoppable Paxos
+              case (j, (vOpt, mbal_j)) => j > i && mbal_j > mbal_i
             }
-
             // Void the command if there are later non-stops
-            if (existsLaterNonStopSlot) Nil else p2as
+            if (shouldVoidStop) {
+              println(s"Voiding stop $s...")
+              createVoidMessages(p2as, "Stop (Later Data)")
+            }
+            else p2as
+          case _ => Nil
         }
       case xs => xs
     }
   }
+
+  def createVoidMessages(ps: Seq[(ActorRef, PaxosMessage)], reason: String) =
+    ps.asInstanceOf[Seq[(ActorRef, Phase2A)]].map {
+      case (a, Phase2A(mb, p, _, mbal)) => (a, Phase2A(mb, p, Voided(reason), mbal))
+    }
 
 }
 
@@ -79,7 +89,11 @@ abstract sealed class DataOrStop[+M] {
 case class Data[M](data: M) extends DataOrStop[M] {
   override def isStop: Boolean = false
 }
-case object Stop extends DataOrStop[Nothing] {
+case class Stop(id: String) extends DataOrStop[Nothing] {
   override def isStop: Boolean = true
+}
+
+case class Voided(reason: String) extends DataOrStop[Nothing] {
+  override def isStop: Boolean = false
 }
 
