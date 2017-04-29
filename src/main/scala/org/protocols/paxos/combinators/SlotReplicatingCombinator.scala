@@ -37,16 +37,19 @@ trait SlotReplicatingCombinator[T] extends PaxosRoles[T] {
 
     def createNewRoleInstance(s: Slot): PaxosRole
 
+    // To elaborate in the inheritors to decide what to do with the messages
+    def postProcess(s: Slot, toSend: ToSend) = toSend
+
     override def receive: Receive = {
       case MessageForSlot(slot, msg)
         if getMachineForSlot(slot).step.isDefinedAt(msg) =>
         // Get the appropriate role instance
         val roleInstance = getMachineForSlot(slot)
         val toSend = roleInstance.step(msg)
-        toSend.foreach { case (a, m) => a ! MessageForSlot(slot, m) }
+        postProcess(slot, toSend).foreach { case (a, m) => a ! MessageForSlot(slot, m) }
     }
   }
 }
 
-case class MessageForSlot[M](slot: Int, msg: M)
+case class MessageForSlot[+M](slot: Int, msg: M)
 

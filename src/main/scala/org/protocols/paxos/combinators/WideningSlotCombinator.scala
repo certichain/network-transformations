@@ -20,7 +20,7 @@ trait WideningSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
     *
     */
   class AcceptorCombiningActor extends DisjointSlotActor {
-    private var myHighestSeenBallot: Int = -1
+    private var myHighestSeenBallot: Ballot = -1
 
     // A map from slots to the corresponding acceptor machines
     private val slotAcceptorMap: mutable.Map[Slot, AcceptorRole] = mutable.Map.empty

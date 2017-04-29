@@ -22,9 +22,10 @@ trait PaxosVocabulary[T] {
                      acceptor: ActorRef,
                      valueOpt: Option[(Ballot, T)]) extends PaxosMessage
 
-  case class Phase2A(ballot: Ballot,
+  case class Phase2A(myBallot: Ballot,
                      proposer: ActorRef,
-                     data: T) extends PaxosMessage
+                     data: T,
+                     mbal: Ballot) extends PaxosMessage
 
   case class Phase2B(acceptedBallot: Ballot,
                      acceptor: ActorRef,
@@ -47,6 +48,5 @@ trait PaxosVocabulary[T] {
       case Nil => None
       case x => Some(x.maxBy(_._1))
     }
-
 
 }

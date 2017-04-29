@@ -28,7 +28,7 @@ trait MonolithicSingleDecreePaxos[T] extends PaxosVocabulary[T] {
         } else {
           /* do nothing */
         }
-      case Phase2A(b, l, v) =>
+      case Phase2A(b, l, v, _) =>
         if (b == currentBallot) {
           // record the value
           chosenValues = (b, v) :: chosenValues
@@ -65,13 +65,13 @@ trait MonolithicSingleDecreePaxos[T] extends PaxosVocabulary[T] {
         if (newResponses.size > acceptors.size / 2) {
           // found quorum
           val nonEmptyResponses = responses.map(_._2).filter(_.nonEmpty)
-          val toPropose: T = nonEmptyResponses match {
-            case Nil => v
-            case rs => rs.map(_.get).maxBy(_._1)._2 // A highest-ballot proposal
+          val (mBal, toPropose) = nonEmptyResponses match {
+            case Nil => (-1, v)
+            case rs => rs.map(_.get).maxBy(_._1) // A highest-ballot proposal
           }
           val quorum = responses.map(_._1)
 
-          for (a <- quorum) a ! Phase2A(myBallot, self, toPropose)
+          for (a <- quorum) a ! Phase2A(myBallot, self, toPropose, mBal)
           context.become(finalStage)
         } else {
           context.become(proposerPhase2(v, newResponses))

@@ -42,7 +42,7 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
     *
     * @param myStartingBallot Initial ballot to start from
     */
-  abstract class AcceptorRole(val myStartingBallot: Int = -1) extends PaxosRole {
+  abstract class AcceptorRole(val myStartingBallot: Ballot = -1) extends PaxosRole {
 
     var currentBallot: Ballot = myStartingBallot
     var chosenValues: List[(Ballot, T)] = Nil
@@ -65,7 +65,7 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
         } else {
           emitZero
         }
-      case Phase2A(b, l, v) =>
+      case Phase2A(b, l, v, _) =>
         if (b == currentBallot) {
           // record the value
           chosenValues = (b, v) :: chosenValues
@@ -104,6 +104,7 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
 
     val step: Step = {
       case ProposeValue(v) =>
+        // Only can be used to propose once
         if (myValueToPropose.isEmpty) myValueToPropose = Some(v)
         if (gotQuorum && canPropose) {
           proceedWithQuorum(v)
@@ -139,13 +140,14 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
       // Found quorum
       val nonEmptyResponses = myResponses.map(_._2).filter(_.nonEmpty)
 
-      // Figure our what to propose
-      val toPropose: T = nonEmptyResponses match {
-        case Nil => v
-        case rs => rs.map(_.get).maxBy(_._1)._2 // A highest-ballot proposal
+      // Figure our what to propose along with the last ballot
+      // it's been proposed for
+      val (mBal, toPropose): (Ballot, T) = nonEmptyResponses match {
+        case Nil => (-1, v)
+        case rs => rs.map(_.get).maxBy(_._1) // A highest-ballot proposal
       }
       val quorumRecipients = myResponses.map(_._1)
-      emitMany(quorumRecipients, _ => Phase2A(myBallot, self, toPropose))
+      emitMany(quorumRecipients, _ => Phase2A(myBallot, self, toPropose, mBal))
     }
   }
 

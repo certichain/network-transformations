@@ -3,7 +3,7 @@ package org.protocols.paxos.combinators
 import akka.actor.ActorRef
 import org.protocols.paxos.PaxosRoles
 
-import scala.collection.{Set, mutable}
+import scala.collection.mutable
 
 /**
   * @author Ilya Sergey
@@ -12,14 +12,13 @@ import scala.collection.{Set, mutable}
 trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosRoles[T] {
 
   // A message type for a bunched acceptor response
-  case class BunchedPhase1B(a: ActorRef,
-                            slotVals: Seq[(Slot, Option[(Ballot, T)])])
+  case class BunchedPhase1B(a: ActorRef, slotVals: Seq[(Slot, Option[(Ballot, T)])])
 
   /**
     * A smart acceptor combiner, bunching the responses together for all slots
     */
   class AcceptorBunchingActor extends DisjointSlotActor {
-    private var myHighestSeenBallot: Int = -1
+    private var myHighestSeenBallot: Ballot = -1
 
     // A map from slots to the corresponding acceptor machines
     private val slotAcceptorMap: mutable.Map[Slot, AcceptorRole] = mutable.Map.empty
@@ -74,22 +73,23 @@ trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
     */
   class ProposerBunchingActor(val acceptors: Seq[ActorRef], val myBallot: Ballot) extends DisjointSlotActor {
 
-    private val myConvincedAcceptors: mutable.Set[ActorRef] = mutable.Set.empty
+    protected val myConvincedAcceptors: mutable.Set[ActorRef] = mutable.Set.empty
 
     override def receive: Receive = {
       case BunchedPhase1B(acc, slotVals) =>
-        // [REMARK] Since we've received this message, the acceptor has agreed for all the slots
+        // [REMARK] Since we've received this message, the acceptor has agreed for all the slots,
+        // so we record him as a convinced acceptor for all the slots
         myConvincedAcceptors.add(acc)
 
         // Process all slot values
         for ((s, vOpt) <- slotVals) {
           val roleInstance = getMachineForSlot(s)
           val toSend = roleInstance.step(Phase1B(true, acc, vOpt))
-          toSend.foreach { case (a, m) => a ! MessageForSlot(s, m) }
+          postProcess(s, toSend).foreach { case (a, m) => a ! MessageForSlot(s, m) }
         }
       // If there was a non-trivial value accepted, it means the corresponding proposer at the corresponding
-      // will be updated for it. Yey, we still need to bring freshly allocated proposer up to date wrt. convinced
-      // acceptors, hence the update in `createNewRoleInstance`
+      // will be updated for it. Yet, we still need to bring freshly allocated
+      // proposer up to date wrt. convinced acceptors, hence the update in `createNewRoleInstance`
 
 
       case m => super.receive(m)
@@ -100,7 +100,9 @@ trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
       val proposer = new ProposerRole(acceptors, myBallot) {
         val self = ProposerBunchingActor.this.self
       }
-      proposer.setResponses(myConvincedAcceptors.map(a => (a, None)).toList)
+      // [REMARK] It's important to say that here we preserve monotonicity of consensus
+      // but short-circuiting the proposer logic
+      proposer.setResponses(myConvincedAcceptors.map((_, None)).toList)
       proposer
     }
 

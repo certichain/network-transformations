@@ -43,7 +43,6 @@ abstract class GenericMultiPaxosTests(_system: ActorSystem) extends TestKit(_sys
     // Wait for some time
     Thread.sleep(400)
     learnAcceptedValues(slotValueMap, instance, factory)
-    afterAll()
   }
 
 
@@ -82,7 +81,7 @@ abstract class GenericMultiPaxosTests(_system: ActorSystem) extends TestKit(_sys
   private def learnAcceptedValues[A](slotValueMap: Map[Int, List[A]],
                                      instance: PaxosConfiguration, factory: PaxosFactory[A]) = {
     import factory._
-    val learners = instance.learners
+    val learners: Seq[ActorRef] = instance.learners
 
     for ((slot, _) <- slotValueMap.toSeq.sortBy(_._1)) {
 
@@ -95,17 +94,29 @@ abstract class GenericMultiPaxosTests(_system: ActorSystem) extends TestKit(_sys
       }
 
       // Collect results
-      val res = receiveN(learners.size, 5 seconds).asInstanceOf[Seq[MessageForSlot[PaxosMessage]]]
+      val res = receiveFromLearners(learners).asInstanceOf[Seq[MessageForSlot[PaxosMessage]]]
 
       for (MessageForSlot(s, LearnedAgreedValue(v, l)) <- res) {
         println(s"Value for a slot $s learnt via ${l.path.name}: $v")
       }
 
-      assert(res.size == learners.size, s"heard back from all learners")
-      assert(res.forall { case MessageForSlot(_, LearnedAgreedValue(v, l)) =>
-        v == res.head.msg.asInstanceOf[LearnedAgreedValue].value
-      }, s"All learners should return the same result at the end.")
+      finalAssertions(learners, factory, res)
 
     }
+
+    println()
+  }
+
+  protected def finalAssertions[A](learners: Seq[ActorRef], factory: PaxosFactory[A], res: Seq[MessageForSlot[Any]]) = {
+    import factory._
+
+    assert(res.size == learners.size, s"heard back from all learners")
+    assert(res.forall { case MessageForSlot(_, LearnedAgreedValue(v, l)) =>
+      v == res.head.msg.asInstanceOf[LearnedAgreedValue].value
+    }, s"All learners should return the same result at the end.")
+  }
+
+  protected def receiveFromLearners(learners: Seq[ActorRef]): Seq[AnyRef] = {
+    receiveN(learners.size, 5 seconds)
   }
 }
