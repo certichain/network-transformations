@@ -11,6 +11,10 @@ Generic definition of Paxos roles and the corresponding implementations.
 * "_Bunching_" MultiPaxos (this is the real MultiPaxos)
 * StoppablePaxos on top of MultiPaxos
 
+### Other case studies for combining messages
+
+* Mencius
+
 ## Additional protocols
 
 Contains simplistic implementation of the following protocols and tests for them:
