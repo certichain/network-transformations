@@ -63,7 +63,8 @@ trait WideningSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
           * As tests show, with the unmodified proposer, this has no effect, as other messages are being ignored anyway
           * (since we haven't asked for them).
           *
-          * [REMARK] This is a good candidate for "redundancy" transformation, enabled by monotonicity of the system.
+          * [REMARK] This is a good candidate for "redundancy" transformation,
+          * enabled by monotonicity of the system.
           */
         for (s <- slotAcceptorMap.keySet + slot) {
           val roleInstance = getMachineForSlot(s)
@@ -81,22 +82,20 @@ trait WideningSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
       }
   }
 
-  /**
-    * [REMARK]
-    *
-    * Unfortunately, we will not be able to make a proposer that would benefit from having a combining acceptor, and
-    * here's why.
-    *
-    * Assume, during communication over a slot i, some corresponding proposer gained a quorum, and can thus send
-    * his proposed value for this very slot i.
-    *
-    * According to the widening acceptor combiner, the same proposer actor also knows that it got a quorum over a
-    * slot j !- i. However, since the results for the previously accepted values have been sent as separate messages,
-    * the corresponding proposer STS might not be sufficiently up-to-date to make a proposal, so it need to synchronize.
-    *
-    * The solution is to physically bundle the messages from acceptors together, so they would reflect their actual
-    * state for the moment they agreed to participate in the quorum. For this, we will design a separate combinator.
-    *
-    */
+/* [Proposers and Widening]
+
+  Unfortunately, we will not be able to make a proposer that would benefit from having a combining acceptor, and
+  here's why.
+
+  Assume, during communication over a slot i, some corresponding proposer gained a quorum, and can thus send
+  his proposed value for this very slot i.
+
+  According to the widening acceptor combiner, the same proposer actor also knows that it got a quorum over a
+  slot j != i. However, since the results for the previously accepted values have been sent as separate messages,
+  the corresponding proposer STS might not be sufficiently up-to-date to make a proposal, so it need to synchronize.
+
+  The solution is to physically bundle the messages from acceptors together, so they would reflect their actual
+  state for the moment they agreed to participate in the quorum. For this, we will design a separate combinator.
+*/
 
 }

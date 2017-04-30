@@ -15,15 +15,15 @@ trait StoppableSlotCombinator[T] extends BunchingSlotCombinator[DataOrStop[T]] w
 
   /**
     * For stoppable functionality, we only need to change the proposer logic, not the acceptors
+    *
+    * The trick is to perform some extra analysis on the structure of our proposers,
+    * and then post-process the messages accordingly.
+    *
     */
   class StoppableProposerActor(override val acceptors: Seq[ActorRef], override val myBallot: Ballot)
       extends ProposerBunchingActor(acceptors, myBallot) {
 
-    /**
-      * Analyse the output of the proposer in order to decide whether to forward it or not;
-      *
-      * [REMARK] characterise this transformation as monotonic
-      */
+    // Analyse the output of the proposer in order to decide whether to forward it or not
     override def postProcess(i: Slot, toSend: ToSend): ToSend = toSend match {
       // Only trigger if we're dealing with the Phase2A message
       case p2as@((_, Phase2A(_, _, data, mbal_i)) :: _) =>
@@ -37,14 +37,7 @@ trait StoppableSlotCombinator[T] extends BunchingSlotCombinator[DataOrStop[T]] w
           (getAllMachines - i).map {
             case (s, p) =>
               val (dOpt, c, _) = p.val2a
-              // [REMARK] It's important to differentiate between values that have been
-              // already proposed and are only planned to be proposed,
-              // in order to avoid gratuitous self-cancellation between stop and data
-
-              // Hmm... It seems that due to bunching the effects in ProposerBunchingActor,
-              // we cannot avoid self-cancellation. I wonder whether it's too bad,
-              // as the only option is to sequentialize the updates of `hasProposed`, but this
-              // leads to non-compositional construction
+              // See [Gratuitous cancellations]
               val r = if (p.hasProposed) (dOpt, c) else (None, -1)
               (s, r)
           }
@@ -79,6 +72,18 @@ trait StoppableSlotCombinator[T] extends BunchingSlotCombinator[DataOrStop[T]] w
     }
 
 }
+
+/* [Gratuitous cancellations]
+
+It's important to differentiate between values that have been
+already proposed and are only planned to be proposed,
+in order to avoid gratuitous self-cancellation between stop and data
+
+Hmm... It seems that due to bunching the effects in ProposerBunchingActor,
+we cannot avoid self-cancellation. I wonder whether it's too bad,
+as the only option is to sequentialize the updates of `hasProposed`, but this
+leads to non-compositional construction
+  */
 
 /**
   * A class for identifying data/stop/void command

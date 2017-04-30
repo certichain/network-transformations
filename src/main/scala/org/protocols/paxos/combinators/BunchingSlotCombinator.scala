@@ -63,17 +63,7 @@ trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
       }
   }
 
-
-  /**
-    * A "smart" actor, bunching together Phase2B ("agree") messages across multiple slots.
-    *
-    * [REMARK] This combining actor is only valid in if acceptors are managed by `AcceptorBunchingActor`, i.e.,
-    * we can ensure that quorum for one slot would imply a quorum across multiple slots, and the incoming messages
-    * in this case are Bunched2A
-    *
-    * [REMARK] The reason why we actually need to bunch responses is explained at the end the file WideningSlotCombinator
-    *
-    */
+  // A "smart" actor, bunching together Phase2B ("agree") messages across multiple slots.
   class ProposerBunchingActor(val acceptors: Seq[ActorRef], val myBallot: Ballot) extends DisjointSlotActor {
 
     override type Role = ProposerRole
@@ -82,8 +72,7 @@ trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
 
     override def receive: Receive = {
       case BunchedPhase1B(acc, slotVals) =>
-        // [REMARK] Since we've received this message, the acceptor has agreed for all the slots,
-        // so we record him as a convinced acceptor for all the slots
+        // See [Update for all Slots]
         myConvincedAcceptors.add(acc)
 
         // This is the most important part: it first executes all of the machines' steps,
@@ -99,9 +88,6 @@ trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
           postProcessed.foreach { case (a, m) => a ! MessageForSlot(s, m) }
         }
 
-      // If there was a non-trivial value accepted, it means the corresponding proposer at the corresponding
-      // will be updated for it. Yet, we still need to bring freshly allocated
-      // proposer up to date wrt. convinced acceptors, hence the update in `createNewRoleInstance`
       case m => super.receive(m)
     }
 
@@ -120,4 +106,19 @@ trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
 
   }
 
+  /* [Update for all Slots]
+
+  Since we've received this message, the acceptor has
+  agreed for _all_ the slots, so we record him as a convinced acceptor for all the slots.
+   */
+
+
+  /* [Validity of ProposerBunchingActor]
+
+  This combining actor is only valid in if acceptors are managed by `AcceptorBunchingActor`, i.e.,
+   we can ensure that quorum for one slot would imply a quorum across multiple slots,
+   and the incoming messages in this case are Bunched2A. The reason why we actually need to bunch responses
+   is explained at the end the file WideningSlotCombinator, remark [Proposers and Widening].
+
+     */
 }
