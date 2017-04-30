@@ -14,16 +14,16 @@ import scala.collection.Map
 trait StoppableSlotCombinator[T] extends BunchingSlotCombinator[DataOrStop[T]] with PaxosRoles[DataOrStop[T]] {
 
   /**
-    * For stoppable functionality, we only need to change the leader logic, not the acceptors
+    * For stoppable functionality, we only need to change the proposer logic, not the acceptors
     *
-    * The trick is to perform some extra analysis on the structure of our leaders,
+    * The trick is to perform some extra analysis on the structure of our proposers,
     * and then post-process the messages accordingly.
     *
     */
-  class StoppableLeaderActor(override val acceptors: Seq[ActorRef], override val myBallot: Ballot)
-      extends LeaderBunchingActor(acceptors, myBallot) {
+  class StoppableProposerActor(override val acceptors: Seq[ActorRef], override val myBallot: Ballot)
+      extends ProposerBunchingActor(acceptors, myBallot) {
 
-    // Analyse the output of the leader in order to decide whether to forward it or not
+    // Analyse the output of the proposer in order to decide whether to forward it or not
     override def postProcess(i: Slot, toSend: ToSend): ToSend = toSend match {
       // Only trigger if we're dealing with the Phase2A message
       case p2as@((_, Phase2A(_, _, data, mbal_i)) :: _) =>

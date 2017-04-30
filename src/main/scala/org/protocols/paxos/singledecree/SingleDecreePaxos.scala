@@ -22,8 +22,8 @@ trait SingleDecreePaxos[T] extends PaxosRoles[T] {
 
   class SimplePaxosAcceptor extends AcceptorRole with SimplePaxosRole
 
-  class SimplePaxosLeader(acceptors: Seq[ActorRef], myBallot: Ballot)
-      extends LeaderRole(acceptors, myBallot) with SimplePaxosRole
+  class SimplePaxosProposer(acceptors: Seq[ActorRef], myBallot: Ballot)
+      extends ProposerRole(acceptors, myBallot) with SimplePaxosRole
 
   class SimplePaxosLearner(acceptors: Seq[ActorRef]) extends LearnerRole(acceptors) with SimplePaxosRole
 

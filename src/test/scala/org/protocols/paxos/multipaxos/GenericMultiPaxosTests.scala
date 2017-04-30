@@ -33,9 +33,9 @@ abstract class GenericMultiPaxosTests(_system: ActorSystem) extends TestKit(_sys
     // TODO generalize this
     val acceptorNum = 7
     val learnerNum = 3
-    val leaderNum = 5
+    val proposerNum = 5
 
-    val instance = factory.createPaxosInstance(system, leaderNum, acceptorNum, learnerNum)
+    val instance = factory.createPaxosInstance(system, proposerNum, acceptorNum, learnerNum)
     println("")
 
     proposeValuesForSlots(slotValueMap, instance, factory)
@@ -62,7 +62,7 @@ abstract class GenericMultiPaxosTests(_system: ActorSystem) extends TestKit(_sys
       // Inner threads proposing specific values for a fixed slot
       for {(j, i) <- permInd.zip(values.indices)
            v = values(j)
-           p = instance.leaders(i)} yield
+           p = instance.proposers(i)} yield
         new Thread {
           override def run() {
             println(s"Proposing for slot $slot via ${p.path.name} value $v.")

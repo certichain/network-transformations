@@ -9,5 +9,5 @@ import org.protocols.paxos.multipaxos.disjoint.DisjointMultiPaxosFactory
 
 class BunchingMultiPaxosFactory[T] extends DisjointMultiPaxosFactory[T] with BunchingSlotCombinator[T] {
   override val AcceptorClass: Class[_] = classOf[AcceptorBunchingActor]
-  override val LeaderClass: Class[_] = classOf[LeaderBunchingActor]
+  override val ProposerClass: Class[_] = classOf[ProposerBunchingActor]
 }

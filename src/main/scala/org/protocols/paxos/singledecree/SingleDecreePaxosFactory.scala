@@ -9,7 +9,7 @@ import org.protocols.paxos.PaxosFactory
 class SingleDecreePaxosFactory[T] extends SingleDecreePaxos[T] with PaxosFactory[T] {
 
   val AcceptorClass: Class[_] = classOf[SimplePaxosAcceptor]
-  val LeaderClass: Class[_] = classOf[SimplePaxosLeader]
+  val ProposerClass: Class[_] = classOf[SimplePaxosProposer]
   val LearnerClass: Class[_] = classOf[SimplePaxosLearner]
 
 }

@@ -5,7 +5,7 @@ import org.protocols.paxos.PaxosRoles
 
 /**
   * A class, implementing a generic functionality of an actor, involved into MultiPaxos under a specific role:
-  * Leader, Acceptor or Learner
+  * Proposer, Acceptor or Learner
   *
   * @author Ilya Sergey
   */

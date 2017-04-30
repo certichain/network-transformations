@@ -44,21 +44,21 @@ trait MonolithicSingleDecreePaxos[T] extends PaxosVocabulary[T] {
   }
 
   /**
-    * The leader class, initiating the agreement procedure
+    * The proposer class, initiating the agreement procedure
     *
     * @param acceptors a set of acceptors in this instance
     * @param myBallot  fixed ballot number
     */
-  class Leader(val acceptors: Seq[ActorRef], val myBallot: Ballot) extends Actor {
+  class Proposer(val acceptors: Seq[ActorRef], val myBallot: Ballot) extends Actor {
 
     def proposerPhase1: Receive = {
       case ProposeValue(v) =>
         // Start Paxos round with my givenballot
         for (a <- acceptors) a ! Phase1A(myBallot, self)
-        context.become(leaderPhase2(v, Nil))
+        context.become(proposerPhase2(v, Nil))
     }
 
-    def leaderPhase2(v: T, responses: List[(ActorRef, Option[(Ballot, T)])]): Receive = {
+    def proposerPhase2(v: T, responses: List[(ActorRef, Option[(Ballot, T)])]): Receive = {
       case Phase1B(true, a, vOpt) =>
         val newResponses = (a, vOpt) :: responses
         // find maximal group
@@ -74,7 +74,7 @@ trait MonolithicSingleDecreePaxos[T] extends PaxosVocabulary[T] {
           for (a <- quorum) a ! Phase2A(myBallot, self, toPropose, mBal)
           context.become(finalStage)
         } else {
-          context.become(leaderPhase2(v, newResponses))
+          context.become(proposerPhase2(v, newResponses))
         }
     }
 

@@ -10,11 +10,11 @@ import akka.actor.{ActorRef, PoisonPill}
   * @author Ilya Sergey
   *
   */
-class PaxosConfiguration(val leaders: Seq[ActorRef], val learners: Seq[ActorRef],
+class PaxosConfiguration(val proposers: Seq[ActorRef], val learners: Seq[ActorRef],
                          private val acceptors: Seq[ActorRef]) {
 
   def killAll(): Unit =
-    for (a <- acceptors ++ leaders ++ learners) {
+    for (a <- acceptors ++ proposers ++ learners) {
       a ! PoisonPill
     }
 }

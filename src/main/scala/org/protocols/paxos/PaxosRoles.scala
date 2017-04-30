@@ -82,12 +82,12 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
 
 
   /**
-    * A leader STS
+    * A proposer STS
     *
     * @param acceptors specific acceptors
     * @param myBallot  an assigned unique ballot
     */
-  abstract class LeaderRole(val acceptors: Seq[ActorRef], val myBallot: Ballot) extends PaxosRole {
+  abstract class ProposerRole(val acceptors: Seq[ActorRef], val myBallot: Ballot) extends PaxosRole {
 
     import collection.mutable.{Map => MMap}
 
