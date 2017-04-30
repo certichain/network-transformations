@@ -16,7 +16,7 @@ import scala.concurrent.duration._
 abstract class GenericMultiPaxosTests(_system: ActorSystem) extends TestKit(_system) with ImplicitSender with
     WordSpecLike with MustMatchers with BeforeAndAfterAll {
 
-  def this() = this(ActorSystem("SingleDecreePaxosTests"))
+  def this() = this(ActorSystem(s"PaxosTests-${hashCode()}"))
 
   def fact(n: Int): Int = if (n < 1) 1 else n * fact(n - 1)
   override def afterAll() {
@@ -31,8 +31,8 @@ abstract class GenericMultiPaxosTests(_system: ActorSystem) extends TestKit(_sys
 
   def setupAndTestInstances[A](slotValueMap: Map[Int, List[A]], factory: PaxosFactory[A]): Unit = {
     // TODO generalize this
-    val acceptorNum = 1
-    val learnerNum = 5
+    val acceptorNum = 7
+    val learnerNum = 3
     val proposerNum = 5
 
     val instance = factory.createPaxosInstance(system, proposerNum, acceptorNum, learnerNum)
@@ -78,33 +78,36 @@ abstract class GenericMultiPaxosTests(_system: ActorSystem) extends TestKit(_sys
   }
 
 
-  private def learnAcceptedValues[A](slotValueMap: Map[Int, List[A]],
-                                     instance: PaxosConfiguration, factory: PaxosFactory[A]) = {
+  protected def learnAcceptedValues[A](slotValueMap: Map[Int, List[A]],
+                                       instance: PaxosConfiguration,
+                                       factory: PaxosFactory[A]): Seq[Seq[MessageForSlot[Any]]] = {
     import factory._
     val learners: Seq[ActorRef] = instance.learners
 
-    for ((slot, _) <- slotValueMap.toSeq.sortBy(_._1)) {
+    val rss =
+      for ((slot, _) <- slotValueMap.toSeq.sortBy(_._1)) yield {
 
-      // Learn the results
-      println("")
-      println(s"[Learning values for slot $slot]")
+        // Learn the results
+        println("")
+        println(s"[Learning values for slot $slot]")
 
-      for (l <- learners) {
-        l ! MessageForSlot(slot, QueryLearner(self))
+        for (l <- learners) {
+          l ! MessageForSlot(slot, QueryLearner(self))
+        }
+
+        // Collect results
+        val res = receiveFromLearners(learners).asInstanceOf[Seq[MessageForSlot[PaxosMessage]]]
+
+        for (MessageForSlot(s, LearnedAgreedValue(v, l)) <- res) {
+          println(s"Value for a slot $s learnt via ${l.path.name}: $v")
+        }
+
+        finalAssertions(learners, factory, res)
+        res
+
       }
-
-      // Collect results
-      val res = receiveFromLearners(learners).asInstanceOf[Seq[MessageForSlot[PaxosMessage]]]
-
-      for (MessageForSlot(s, LearnedAgreedValue(v, l)) <- res) {
-        println(s"Value for a slot $s learnt via ${l.path.name}: $v")
-      }
-
-      finalAssertions(learners, factory, res)
-
-    }
-
     println()
+    rss
   }
 
   protected def finalAssertions[A](learners: Seq[ActorRef], factory: PaxosFactory[A], res: Seq[MessageForSlot[Any]]) = {

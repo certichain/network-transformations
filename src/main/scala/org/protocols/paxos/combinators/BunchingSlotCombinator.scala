@@ -107,6 +107,7 @@ trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
 
     override protected def getMachineForSlot(slot: Slot): ProposerRole = {
       val p = super.getMachineForSlot(slot)
+      // Any invoked machine needs to be brought up to date
       p.addResponses(myConvincedAcceptors.toSet.map((a: ActorRef) => (a, None)))
       p
     }
