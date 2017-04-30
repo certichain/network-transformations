@@ -18,14 +18,16 @@ trait SlotReplicatingCombinator[T] extends PaxosRoles[T] {
 
   trait DisjointSlotActor extends Actor {
 
+    type Role <: PaxosRole
+
     import scala.collection.mutable.{Map => MMap}
 
     /**
       * A map from slots to the corresponding role protocols
       */
-    protected val slotMachineMap: MMap[Slot, PaxosRole] = MMap.empty
+    private val slotMachineMap: MMap[Slot, Role] = MMap.empty
 
-    protected def getMachineForSlot(slot: Slot): PaxosRole = {
+    protected def getMachineForSlot(slot: Slot): Role = {
       slotMachineMap.get(slot) match {
         case Some(role) => role
         case None =>
@@ -35,7 +37,11 @@ trait SlotReplicatingCombinator[T] extends PaxosRoles[T] {
       }
     }
 
-    def createNewRoleInstance(s: Slot): PaxosRole
+    protected def getAllMachines : Map[Slot, Role] =
+      (for (s <- slotMachineMap.keys) yield (s, getMachineForSlot(s))).toMap
+
+
+    def createNewRoleInstance(s: Slot): Role
 
     // To elaborate in the inheritors to decide what to do with the messages
     def postProcess(s: Slot, toSend: ToSend) = toSend

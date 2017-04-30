@@ -18,6 +18,9 @@ trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
     * A smart acceptor combiner, bunching the responses together for all slots
     */
   class AcceptorBunchingActor extends DisjointSlotActor {
+
+    override type Role = AcceptorRole
+
     private var myHighestSeenBallot: Ballot = -1
 
     // A map from slots to the corresponding acceptor machines
@@ -73,6 +76,8 @@ trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
     */
   class ProposerBunchingActor(val acceptors: Seq[ActorRef], val myBallot: Ballot) extends DisjointSlotActor {
 
+    override type Role = ProposerRole
+
     protected val myConvincedAcceptors: mutable.Set[ActorRef] = mutable.Set.empty
 
     override def receive: Receive = {
@@ -83,13 +88,13 @@ trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
 
         // This is the most important part: it first executes all of the machines' steps,
         // so the effects (like computing the right val2a) will be in effect
-        val toSendAll: Seq[(Slot, ToSend)] = for ((s, vOpt) <- slotVals) yield {
-          val roleInstance = getMachineForSlot(s)
-          (s, roleInstance.step(Phase1B(true, acc, vOpt)))
+        val allStepAndProduceMessages: Seq[(Slot, ToSend)] = for ((s, vOpt) <- slotVals) yield {
+          val proposer = getMachineForSlot(s)
+          (s, proposer.step(Phase1B(true, acc, vOpt)))
         }
 
         // Now, the post-processing is done with all proposer-machines in the updated state
-        toSendAll.foreach { case (s, toSend) =>
+        allStepAndProduceMessages.foreach { case (s, toSend) =>
           val postProcessed = postProcess(s, toSend)
           postProcessed.foreach { case (a, m) => a ! MessageForSlot(s, m) }
         }
@@ -97,11 +102,14 @@ trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
       // If there was a non-trivial value accepted, it means the corresponding proposer at the corresponding
       // will be updated for it. Yet, we still need to bring freshly allocated
       // proposer up to date wrt. convinced acceptors, hence the update in `createNewRoleInstance`
-
-
       case m => super.receive(m)
     }
 
+    override protected def getMachineForSlot(slot: Slot): ProposerRole = {
+      val p = super.getMachineForSlot(slot)
+      p.addResponses(myConvincedAcceptors.toSet.map((a: ActorRef) => (a, None)))
+      p
+    }
 
     override def createNewRoleInstance(s: Slot): ProposerRole = {
       new ProposerRole(acceptors, myBallot) {

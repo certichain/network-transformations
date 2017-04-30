@@ -20,6 +20,9 @@ trait WideningSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
     *
     */
   class AcceptorCombiningActor extends DisjointSlotActor {
+
+    override type Role = AcceptorRole
+
     private var myHighestSeenBallot: Ballot = -1
 
     // A map from slots to the corresponding acceptor machines

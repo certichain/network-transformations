@@ -67,11 +67,20 @@ class StoppablePaxosAsPaxos extends StoppableMultiPaxosTests {
 }
 
 
-class StoppablePaxosStops extends StoppableMultiPaxosTests {
+class StoppablePaxosStops2 extends StoppableMultiPaxosTests {
   s"A Stoppable Paxos" must {
     s"cease to proceed for further slots once a stoppable command is issued" in {
       // A map from slots to values
       setupAndTestInstances(stoppableTestMap2, new StoppablePaxosFactory[String])
+    }
+  }
+}
+
+class StoppablePaxosStops3 extends StoppableMultiPaxosTests {
+  s"A Stoppable Paxos" must {
+    s"cease to proceed for further slots once a stoppable command is issued" in {
+      // A map from slots to values
+      setupAndTestInstances(stoppableTestMap3, new StoppablePaxosFactory[String])
     }
   }
 }

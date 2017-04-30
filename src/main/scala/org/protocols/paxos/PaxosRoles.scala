@@ -66,7 +66,6 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
           emitZero
         }
       case m@Phase2A(b, l, v, _) =>
-        println(s"[Acceptor] processing $m.")
         if (b == currentBallot) {
           // record the value
           chosenValues = (b, v) :: chosenValues
@@ -90,33 +89,33 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
     */
   abstract class ProposerRole(val acceptors: Seq[ActorRef], val myBallot: Ballot) extends PaxosRole {
 
-    type Responses = List[(ActorRef, Option[(Ballot, T)])]
+    import collection.mutable.{Map => MMap}
 
     private var myValueToPropose: Option[T] = None
-    private var canPropose: Boolean = true
-    def gotQuorum = myResponses.size > acceptors.size / 2
-    private var myResponses: Responses = Nil
-    def getResponses: Responses = myResponses
+    private var notYetProposed: Boolean = true
+    private var myResponses: MMap[ActorRef, Option[(Ballot, T)]] = MMap.empty
+    private def gotQuorum = myResponses.size > acceptors.size / 2
+    private def unconvincedAcceptors = acceptors.filter(a => !myResponses.isDefinedAt(a))
 
-    def unconvincedAcceptors = acceptors.filter(a => !myResponses.exists(_._1 == a))
+    def hasProposed = !notYetProposed
 
-    def setResponses(rs: Responses) {
-      if (myResponses.isEmpty) myResponses = rs
+    def addResponses(rs: Set[(ActorRef, Option[(Ballot, T)])]) {
+      for ((a, r) <- rs if !myResponses.isDefinedAt(a)) myResponses.update(a, r)
     }
 
     val step: Step = {
       case ProposeValue(v) =>
         // Only can be used to propose once
         if (myValueToPropose.isEmpty) myValueToPropose = Some(v)
-        if (gotQuorum && canPropose) {
-          proceedWithQuorum(v)
+        if (gotQuorum && notYetProposed) {
+          proceedWithQuorum()
         } else {
           emitMany(unconvincedAcceptors, _ => Phase1A(myBallot, self))
         }
       case Phase1B(true, a, vOpt) =>
-        myResponses = (a, vOpt) :: myResponses.filter(_._1 == a)
-        if (gotQuorum && canPropose && myValueToPropose.nonEmpty) {
-          proceedWithQuorum(myValueToPropose.get)
+        addResponses(Set((a, vOpt)))
+        if (gotQuorum && notYetProposed && myValueToPropose.nonEmpty) {
+          proceedWithQuorum()
         } else {
           emitZero
         }
@@ -126,44 +125,44 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
     /**
       * This method is a point-cut to short-circuit the `proposerCollectForQuorum` stage
       *
-      * @param v value to be proposed
       * @return messages to be sent to the acceptors
       */
-    private def proceedWithQuorum(v: T): ToSend = {
-      // It's ellegal to call this function if no quorum is reached
-      if (myResponses.size <= acceptors.size / 2) {
-        throw new Exception("No quorum has been reached")
+    private def proceedWithQuorum(): ToSend = {
+      if (myValueToPropose.isEmpty) {
+        throw new Exception("No value to propose")
       }
-
-      if (!canPropose) {
+      if (!notYetProposed) {
         throw new Exception("Cannot propose a value any more.")
       }
-      canPropose = false
 
-      val (toPropose, mBal, quorumRecipients) = val2a(Some(v))
+      val (toPropose, mBal, quorumRecipients) = val2a
       assert(toPropose.nonEmpty)
+
+      notYetProposed = false
       emitMany(quorumRecipients, _ => Phase2A(myBallot, self, toPropose.get, mBal))
     }
 
 
-    def val2a(v: Option[T]): (Option[T], Ballot, List[ActorRef]) = {
+    def val2a: (Option[T], Ballot, List[ActorRef]) = {
+      // It's illegal to call this function if no quorum is reached
+      if (myResponses.size <= acceptors.size / 2) {
+        throw new Exception("No quorum has been reached")
+      }
+
       // Found quorum, get candidates for the proposal
-      val nonEmptyResponses = myResponses.map(_._2).filter(_.nonEmpty)
+      val nonEmptyResponses = myResponses.values.filter(_.nonEmpty)
 
       // Figure out what to propose along with the last ballot it's been proposed for
       val (mBal, toPropose) = nonEmptyResponses match {
-        case Nil =>
-          // This is a hook to make this function take myValueToPropose into the account
-          // for the case when this one has already proposed
-          if (v.isEmpty && myValueToPropose.nonEmpty && canPropose)
-            (myBallot, myValueToPropose)
-          else (-1, v)
+        case Nil => (myBallot, myValueToPropose)
+          // It's important to distinguish between querying for
+          // stoppable purposes and for committing by myself
         case rs =>
-          val (b, w) = rs.map(_.get).maxBy(_._1) // A highest-ballot proposal
-          (b, Some(w))
+          val (c, w) = rs.map(_.get).maxBy(_._1) // A highest-ballot proposal
+          (c, Some(w))
       }
 
-      (toPropose, mBal, myResponses.map(_._1))
+      (toPropose, mBal, myResponses.keySet.toList)
     }
   }
 
