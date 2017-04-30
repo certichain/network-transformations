@@ -9,7 +9,7 @@ import org.protocols.paxos.PaxosFactory
 class MonolithicSDPaxosFactory[T] extends MonolithicSingleDecreePaxos[T] with PaxosFactory[T] {
 
   val AcceptorClass: Class[_] = classOf[Acceptor]
-  val ProposerClass: Class[_] = classOf[Proposer]
+  val LeaderClass: Class[_] = classOf[Leader]
   val LearnerClass: Class[_] = classOf[Learner]
 
 }

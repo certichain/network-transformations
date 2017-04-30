@@ -64,9 +64,9 @@ trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
   }
 
   // A "smart" actor, bunching together Phase2B ("agree") messages across multiple slots.
-  class ProposerBunchingActor(val acceptors: Seq[ActorRef], val myBallot: Ballot) extends DisjointSlotActor {
+  class LeaderBunchingActor(val acceptors: Seq[ActorRef], val myBallot: Ballot) extends DisjointSlotActor {
 
-    override type Role = ProposerRole
+    override type Role = LeaderRole
 
     protected val myConvincedAcceptors: mutable.Set[ActorRef] = mutable.Set.empty
 
@@ -78,11 +78,11 @@ trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
         // This is the most important part: it first executes all of the machines' steps,
         // so the effects (like computing the right val2a) will be in effect
         val allStepAndProduceMessages: Seq[(Slot, ToSend)] = for ((s, vOpt) <- slotVals) yield {
-          val proposer = getMachineForSlot(s)
-          (s, proposer.step(Phase1B(true, acc, vOpt)))
+          val leader = getMachineForSlot(s)
+          (s, leader.step(Phase1B(true, acc, vOpt)))
         }
 
-        // Now, the post-processing is done with all proposer-machines in the updated state
+        // Now, the post-processing is done with all leader-machines in the updated state
         allStepAndProduceMessages.foreach { case (s, toSend) =>
           val postProcessed = postProcess(s, toSend)
           postProcessed.foreach { case (a, m) => a ! MessageForSlot(s, m) }
@@ -91,16 +91,16 @@ trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
       case m => super.receive(m)
     }
 
-    override protected def getMachineForSlot(slot: Slot): ProposerRole = {
+    override protected def getMachineForSlot(slot: Slot): LeaderRole = {
       val p = super.getMachineForSlot(slot)
       // Any invoked machine needs to be brought up to date
       p.addResponses(myConvincedAcceptors.toSet.map((a: ActorRef) => (a, None)))
       p
     }
 
-    override def createNewRoleInstance(s: Slot): ProposerRole = {
-      new ProposerRole(acceptors, myBallot) {
-        val self = ProposerBunchingActor.this.self
+    override def createNewRoleInstance(s: Slot): LeaderRole = {
+      new LeaderRole(acceptors, myBallot) {
+        val self = LeaderBunchingActor.this.self
       }
     }
 
@@ -113,12 +113,12 @@ trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
    */
 
 
-  /* [Validity of ProposerBunchingActor]
+  /* [Validity of LeaderBunchingActor]
 
   This combining actor is only valid in if acceptors are managed by `AcceptorBunchingActor`, i.e.,
    we can ensure that quorum for one slot would imply a quorum across multiple slots,
    and the incoming messages in this case are Bunched2A. The reason why we actually need to bunch responses
-   is explained at the end the file WideningSlotCombinator, remark [Proposers and Widening].
+   is explained at the end the file WideningSlotCombinator, remark [Leaders and Widening].
 
      */
 }

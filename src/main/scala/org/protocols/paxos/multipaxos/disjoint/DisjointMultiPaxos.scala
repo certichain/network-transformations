@@ -24,10 +24,10 @@ trait DisjointMultiPaxos[T] extends SlotReplicatingCombinator[T] {
     }
   }
 
-  // A slot-based proposer actor (managing all slots)
-  class MultiPaxosProposer(acceptors: Seq[ActorRef], myBallot: Ballot) extends DisjointSlotActor { act =>
-    override type Role = ProposerRole
-    def createNewRoleInstance(s: Slot) = new ProposerRole(acceptors, myBallot) {
+  // A slot-based leader actor (managing all slots)
+  class MultiPaxosLeader(acceptors: Seq[ActorRef], myBallot: Ballot) extends DisjointSlotActor { act =>
+    override type Role = LeaderRole
+    def createNewRoleInstance(s: Slot) = new LeaderRole(acceptors, myBallot) {
       val self: ActorRef = act.self
     }
   }
@@ -44,7 +44,7 @@ trait DisjointMultiPaxos[T] extends SlotReplicatingCombinator[T] {
 
 class DisjointMultiPaxosFactory[T] extends PaxosFactory[T] with DisjointMultiPaxos[T] {
   val AcceptorClass: Class[_] = classOf[MultiPaxosAcceptor]
-  val ProposerClass: Class[_] = classOf[MultiPaxosProposer]
+  val LeaderClass: Class[_] = classOf[MultiPaxosLeader]
   val LearnerClass: Class[_] = classOf[MultiPaxosLearner]
 }
 

@@ -16,7 +16,7 @@ trait PaxosVocabulary[T] {
   sealed trait PaxosMessage
 
   case class Phase1A(ballot: Ballot,
-                     proposer: ActorRef) extends PaxosMessage
+                     leader: ActorRef) extends PaxosMessage
 
   case class Phase1B(promise: Boolean,
                      acceptor: ActorRef,

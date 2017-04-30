@@ -10,7 +10,7 @@ import org.protocols.paxos.multipaxos.bunching.BunchingMultiPaxosFactory
 class StoppablePaxosFactory[T] extends BunchingMultiPaxosFactory[DataOrStop[T]]
     with StoppableSlotCombinator[T] {
 
-  override val ProposerClass: Class[_] = classOf[StoppableProposerActor]
+  override val LeaderClass: Class[_] = classOf[StoppableLeaderActor]
 
 }
 

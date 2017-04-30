@@ -29,10 +29,10 @@ abstract class AbstractSingleDecreePaxosTests(_system: ActorSystem) extends Test
 
 
     val instance = factory.createPaxosInstance(system, proposerNum, acceptorNum, learnerNum)
-    val proposers: Seq[ActorRef] = instance.proposers
+    val leaders: Seq[ActorRef] = instance.leaders
 
     // Propose values
-    proposeValues(values, factory, proposers)
+    proposeValues(values, factory, leaders)
 
     // Wait for some time
     Thread.sleep(800)

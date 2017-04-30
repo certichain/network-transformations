@@ -56,11 +56,11 @@ trait WideningSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
         /**
           * [REMARK]
           * Here, it would be perfectly safe to send back only the result for `slot`, but since we have bumped
-          * up all our acceptor instances, we can as well inform this proposer about all values we have accepted for
+          * up all our acceptor instances, we can as well inform this leader about all values we have accepted for
           * any slots ever.
           *
           * TODO: prove that this is a safe transformation from sending the response just fortheis specific `slot`.
-          * As tests show, with the unmodified proposer, this has no effect, as other messages are being ignored anyway
+          * As tests show, with the unmodified leader, this has no effect, as other messages are being ignored anyway
           * (since we haven't asked for them).
           *
           * [REMARK] This is a good candidate for "redundancy" transformation,
@@ -82,17 +82,17 @@ trait WideningSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
       }
   }
 
-/* [Proposers and Widening]
+/* [Leaders and Widening]
 
-  Unfortunately, we will not be able to make a proposer that would benefit from having a combining acceptor, and
+  Unfortunately, we will not be able to make a leader that would benefit from having a combining acceptor, and
   here's why.
 
-  Assume, during communication over a slot i, some corresponding proposer gained a quorum, and can thus send
+  Assume, during communication over a slot i, some corresponding leader gained a quorum, and can thus send
   his proposed value for this very slot i.
 
-  According to the widening acceptor combiner, the same proposer actor also knows that it got a quorum over a
+  According to the widening acceptor combiner, the same leader actor also knows that it got a quorum over a
   slot j != i. However, since the results for the previously accepted values have been sent as separate messages,
-  the corresponding proposer STS might not be sufficiently up-to-date to make a proposal, so it need to synchronize.
+  the corresponding leader STS might not be sufficiently up-to-date to make a proposal, so it need to synchronize.
 
   The solution is to physically bundle the messages from acceptors together, so they would reflect their actual
   state for the moment they agreed to participate in the quorum. For this, we will design a separate combinator.
