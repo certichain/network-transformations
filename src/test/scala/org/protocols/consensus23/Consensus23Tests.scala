@@ -10,6 +10,7 @@ import scala.concurrent.duration._
  * @author Ilya Sergey
  */
 
+/*
 class Consensus23Tests(_system: ActorSystem) extends TestKit(_system) with ImplicitSender with WordSpecLike with MustMatchers with BeforeAndAfterAll {
 
   def this() = this(ActorSystem("Consensus23Tests"))
@@ -67,3 +68,4 @@ class Consensus23Tests(_system: ActorSystem) extends TestKit(_system) with Impli
       system.actorOf(Props(classOf[Consensus23Node[Int]], v, round), name = s"round-$round-node-$i-offering-$v")
     }
 }
+*/
