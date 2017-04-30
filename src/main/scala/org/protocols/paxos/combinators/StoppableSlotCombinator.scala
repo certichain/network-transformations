@@ -30,7 +30,6 @@ trait StoppableSlotCombinator[T] extends BunchingSlotCombinator[DataOrStop[T]] w
 
         // Simple sanity check
         assert(p2as.forall(_._2.isInstanceOf[Phase2A]), s"All messages should be Phase2A:\n$p2as")
-        val (_, Phase2A(_, _, data, _)) = p2as.head // all other are identical
 
         // Get slot/proposal information
         val slotToProposedVal: Map[Slot, (Option[DataOrStop[T]], Ballot)] =
@@ -47,7 +46,6 @@ trait StoppableSlotCombinator[T] extends BunchingSlotCombinator[DataOrStop[T]] w
           // Only forward the messages if there is no preceding stop command
           case Data(d) =>
             val earlierStop = slotToProposedVal.exists {
-              // All slots j < i are not stop commands
               case (j, (vOpt, mbal_j)) => j < i && vOpt.isDefined && vOpt.get.isStop
             }
             if (earlierStop) createVoidMessages(p2as, "Data (Earlier Stop)") else p2as
@@ -58,7 +56,6 @@ trait StoppableSlotCombinator[T] extends BunchingSlotCombinator[DataOrStop[T]] w
               // A condition from Stoppable Paxos
               case (j, (vOpt, mbal_j)) => j > i && mbal_j >= mbal_i
             }
-            // Void the command if there are later non-stops
             if (shouldVoidStop) createVoidMessages(p2as, "Stop (Later Data)") else p2as
           case _ => Nil
         }
