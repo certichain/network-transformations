@@ -1,10 +1,8 @@
 package org.protocols.paxos.multipaxos
 
-import akka.actor.ActorRef
-import akka.testkit.TestKitBase
-import org.protocols.paxos.{PaxosConfiguration, PaxosFactory}
 import org.protocols.paxos.combinators.{Data, MessageForSlot, Stop, Voided}
 import org.protocols.paxos.multipaxos.stoppable.StoppablePaxosFactory
+import org.protocols.paxos.{PaxosConfiguration, PaxosFactory}
 
 /**
   * @author Ilya Sergey
