@@ -75,15 +75,9 @@ trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
         // See [Update for all Slots]
         myConvincedAcceptors.add(acc)
 
-        // This is the most important part: it first executes all of the machines' steps,
-        // so the effects (like computing the right val2a) will be in effect
-        val allStepAndProduceMessages: Seq[(Slot, ToSend)] = for ((s, vOpt) <- slotVals) yield {
+        for ((s, vOpt) <- slotVals) {
           val proposer = getMachineForSlot(s)
-          (s, proposer.step(Phase1B(true, acc, vOpt)))
-        }
-
-        // Now, the post-processing is done with all proposer-machines in the updated state
-        allStepAndProduceMessages.foreach { case (s, toSend) =>
+          val toSend = proposer.step(Phase1B(true, acc, vOpt))
           val postProcessed = postProcess(s, toSend)
           postProcessed.foreach { case (a, m) => a ! MessageForSlot(s, m) }
         }

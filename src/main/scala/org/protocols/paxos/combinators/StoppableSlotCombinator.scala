@@ -79,10 +79,9 @@ It's important to differentiate between values that have been
 already proposed and are only planned to be proposed,
 in order to avoid gratuitous self-cancellation between stop and data
 
-Hmm... It seems that due to bunching the effects in ProposerBunchingActor,
-we cannot avoid self-cancellation. I wonder whether it's too bad,
-as the only option is to sequentialize the updates of `hasProposed`, but this
-leads to non-compositional construction
+This is possible due to sequentialization of based Phase2A starts in
+BunchingSlotCombinator's receive
+
   */
 
 /**
