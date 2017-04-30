@@ -97,10 +97,36 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
     private def gotQuorum = myResponses.size > acceptors.size / 2
     private def unconvincedAcceptors = acceptors.filter(a => !myResponses.isDefinedAt(a))
 
+    /**
+      * Three public methods
+      */
     def hasProposed = !notYetProposed
 
+    // TODO: prove that this is a monotone optimization
     def addResponses(rs: Set[(ActorRef, Option[(Ballot, T)])]) {
       for ((a, r) <- rs if !myResponses.isDefinedAt(a)) myResponses.update(a, r)
+    }
+
+    def val2a: (Option[T], Ballot, List[ActorRef]) = {
+      // It's illegal to call this function if no quorum is reached
+      if (myResponses.size <= acceptors.size / 2) {
+        throw new Exception("No quorum has been reached")
+      }
+
+      // Found quorum, get candidates for the proposal
+      val nonEmptyResponses = myResponses.values.filter(_.nonEmpty)
+
+      // Figure out what to propose along with the last ballot it's been proposed for
+      val (mBal, toPropose) = nonEmptyResponses match {
+        case Nil => (myBallot, myValueToPropose)
+        // It's important to distinguish between querying for
+        // stoppable purposes and for committing by myself
+        case rs =>
+          val (c, w) = rs.map(_.get).maxBy(_._1) // A highest-ballot proposal
+          (c, Some(w))
+      }
+
+      (toPropose, mBal, myResponses.keySet.toList)
     }
 
     val step: Step = {
@@ -122,8 +148,9 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
       case Phase2B(_, _, _) => emitZero
     }
 
+
     /**
-      * This method is a point-cut to short-circuit the `proposerCollectForQuorum` stage
+      * Essentially a "commit" method for the value to be proposed
       *
       * @return messages to be sent to the acceptors
       */
@@ -140,29 +167,6 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
 
       notYetProposed = false
       emitMany(quorumRecipients, _ => Phase2A(myBallot, self, toPropose.get, mBal))
-    }
-
-
-    def val2a: (Option[T], Ballot, List[ActorRef]) = {
-      // It's illegal to call this function if no quorum is reached
-      if (myResponses.size <= acceptors.size / 2) {
-        throw new Exception("No quorum has been reached")
-      }
-
-      // Found quorum, get candidates for the proposal
-      val nonEmptyResponses = myResponses.values.filter(_.nonEmpty)
-
-      // Figure out what to propose along with the last ballot it's been proposed for
-      val (mBal, toPropose) = nonEmptyResponses match {
-        case Nil => (myBallot, myValueToPropose)
-          // It's important to distinguish between querying for
-          // stoppable purposes and for committing by myself
-        case rs =>
-          val (c, w) = rs.map(_.get).maxBy(_._1) // A highest-ballot proposal
-          (c, Some(w))
-      }
-
-      (toPropose, mBal, myResponses.keySet.toList)
     }
   }
 
