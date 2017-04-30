@@ -31,7 +31,7 @@ abstract class GenericMultiPaxosTests(_system: ActorSystem) extends TestKit(_sys
 
   def setupAndTestInstances[A](slotValueMap: Map[Int, List[A]], factory: PaxosFactory[A]): Unit = {
     // TODO generalize this
-    val acceptorNum = 1
+    val acceptorNum = 7
     val learnerNum = 3
     val proposerNum = 5
 
