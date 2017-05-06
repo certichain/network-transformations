@@ -54,7 +54,9 @@ trait StoppableSlotCombinator[T] extends BunchingSlotCombinator[DataOrStop[T]] w
           case Stop(s) =>
             val shouldVoidStop = slotToProposedVal.exists {
               // A condition from Stoppable Paxos
-              case (j, (vOpt, mbal_j)) => j > i && mbal_j >= mbal_i
+              case (j, (vOpt, mbal_j)) => j > i && mbal_j >= mbal_i &&
+                // A simple optimization
+                vOpt.isDefined && vOpt.get.isValue
             }
             if (shouldVoidStop) createVoidMessages(p2as, "Stop (Later Data)") else p2as
           case _ => Nil
@@ -86,19 +88,23 @@ BunchingSlotCombinator's receive
   */
 abstract sealed class DataOrStop[+M] {
   def isStop: Boolean
+  def isValue: Boolean
 }
 
 case class Data[M](data: M) extends DataOrStop[M] {
   override def isStop: Boolean = false
+  override def isValue: Boolean = true
 }
 
 case class Stop(id: String) extends DataOrStop[Nothing] {
   override def isStop: Boolean = true
+  override def isValue: Boolean = false
 }
 
 // Better than just emitting nothing
 case class Voided(reason: String) extends DataOrStop[Nothing] {
   override def toString: String = s"[Voided $reason]"
   override def isStop: Boolean = false
+  override def isValue: Boolean = false
 }
 

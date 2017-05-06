@@ -75,7 +75,7 @@ trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
         // See [Update for all Slots]
         myConvincedAcceptors.add(acc)
 
-        for ((s, vOpt) <- slotVals) {
+        for ((s, vOpt) <- slotVals.sortBy(_._1)) {
           val proposer = getMachineForSlot(s)
           val toSend = proposer.step(Phase1B(true, acc, vOpt))
           val postProcessed = postProcess(s, toSend)
