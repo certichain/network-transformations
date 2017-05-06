@@ -40,6 +40,8 @@ trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
     override def receive: Receive = {
       case MessageForSlot(slot, msg@Phase1A(b, l)) =>
         myHighestSeenBallot = Math.max(myHighestSeenBallot, b)
+        /* TODO: Think of linguistic terms to express this bunching
+           operation as a protocol combinator */
 
         // For each slot, compute an accepted last value
         val slotLastValues: Seq[(Slot, Option[(Ballot, T)])] =
@@ -68,12 +70,12 @@ trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
 
     override type Role = ProposerRole
 
-    protected val myConvincedAcceptors: mutable.Set[ActorRef] = mutable.Set.empty
+    protected var myConvincedAcceptors: Set[(ActorRef, Option[(Ballot, T)])] = Set.empty
 
     override def receive: Receive = {
       case BunchedPhase1B(acc, slotVals) =>
         // See [Update for all Slots]
-        myConvincedAcceptors.add(acc)
+        myConvincedAcceptors = myConvincedAcceptors ++ Set((acc, None))
 
         for ((s, vOpt) <- slotVals.sortBy(_._1)) {
           val proposer = getMachineForSlot(s)
@@ -88,7 +90,7 @@ trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
     override protected def getMachineForSlot(slot: Slot): ProposerRole = {
       val p = super.getMachineForSlot(slot)
       // Any invoked machine needs to be brought up to date
-      p.addResponses(myConvincedAcceptors.toSet.map((a: ActorRef) => (a, None)))
+      p.addResponses(myConvincedAcceptors)
       p
     }
 
