@@ -1,13 +1,13 @@
 package org.protocols.paxos.multipaxos
 
 import org.protocols.paxos.combinators.Command
-import org.protocols.paxos.multipaxos.mencius.RestrictedMultiCombinatorFactory
+import org.protocols.paxos.multipaxos.mencius.SimpleConsensusMultiCombinatorFactory
 
 /**
   * @author Ilya Sergey
   */
 
-class RestrictedMultiPaxosTests extends GenericMultiPaxosTests {
+class SimpleConsensusPaxosTests extends GenericMultiPaxosTests {
 
   // wrapping everything into data
   val restrictedTestData = testMap1.mapValues(_.map(Command(_)))
@@ -18,7 +18,7 @@ class RestrictedMultiPaxosTests extends GenericMultiPaxosTests {
       // A map from slots to values
       //      setupAndTestInstances(testMap1, new BunchingMultiPaxosFactory[String])
       //      setupAndTestInstances(restrictedTestData, new BunchingMultiPaxosFactory[CommandOrNoOp[String]])
-      setupAndTestInstances(restrictedTestData, new RestrictedMultiCombinatorFactory[String])
+      setupAndTestInstances(restrictedTestData, new SimpleConsensusMultiCombinatorFactory[String])
     }
   }
 

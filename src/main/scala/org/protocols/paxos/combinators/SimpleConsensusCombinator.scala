@@ -9,17 +9,17 @@ import org.protocols.paxos.multipaxos.disjoint.DisjointMultiPaxos
   * otherwise it proposes a NoOp message.
   *
   * We have inherit it from DisjointMultiPaxos, not from BunchingSlotCombinator.
-  * See [Restricted Paxos and bunching] for explanations.
+  * See [Simple Consensus and bunching] for explanations.
   *
   * @author Ilya Sergey
   */
 
-trait RestrictedCombinator[T] extends DisjointMultiPaxos[CommandOrNoOp[T]] {
+trait SimpleConsensusCombinator[T] extends DisjointMultiPaxos[CommandOrNoOp[T]] {
 
 
-  class RestrictedBunchingActor(acceptors: Seq[ActorRef], myBallot: Ballot,
-                                // number of proposers is known
-                                val myNumProposers: Int)
+  class SimpleConsensusProposerActor(acceptors: Seq[ActorRef], myBallot: Ballot,
+                                     // number of proposers is known
+                                     val myNumProposers: Int)
       extends MultiPaxosProposer(acceptors, myBallot) {
 
     /**
@@ -52,12 +52,12 @@ object NoOp extends CommandOrNoOp[Nothing]
 /*
 [Restricted Paxos and bunching]
 
-It seems that the restricted Paxos is not a strict refinement of MultiPaxos with bunching, as bunching
+It seems that the Simple Consensus/Paxos is not a strict refinement of MultiPaxos with bunching, as bunching
 essentially conflates multiple Phases 1 for a single proposer, making him a coordinator over multiple slots.
 
-In contrast, in Restricted Paxos, each coordinator takes over a specific subset of slots, and they do not interfere.
+In contrast, in Simple Consensus, each coordinator takes over a specific subset of slots, and they do not interfere.
 
-Thus, an attempt to inherit RestrictedPaxos from BunchingSlotCombinator instead of DisjointMultiPaxos
+Thus, an attempt to inherit Simple Consensus from BunchingSlotCombinator instead of DisjointMultiPaxos
 leads to starvation (as one coordinator essentially prevents others from progressing by taking over all of the slots).
 
 How cool is that!
