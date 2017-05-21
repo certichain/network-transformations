@@ -24,3 +24,5 @@ an optimized back-end.
 The top-level idea: proving consensus optimizations correct.
 
 A framework for proving optimizations correct.
+
+What are VCs? Something along the line of reachability with STSs, consensus and monotonicity.
