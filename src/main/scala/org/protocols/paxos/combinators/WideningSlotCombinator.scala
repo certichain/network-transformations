@@ -77,9 +77,7 @@ trait WideningSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
     }
 
     override def createNewRoleInstance(s: Slot): AcceptorRole =
-      new AcceptorRole() {
-        val self = AcceptorCombiningActor.this.self
-      }
+      createAcceptor(AcceptorCombiningActor.this.self)
   }
 
 /* [Proposers and Widening]

@@ -60,9 +60,7 @@ trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
     }
 
     override def createNewRoleInstance(s: Slot): AcceptorRole =
-      new AcceptorRole() {
-        val self = AcceptorBunchingActor.this.self
-      }
+      createAcceptor(AcceptorBunchingActor.this.self)
   }
 
   // A "smart" actor, bunching together Phase2B ("agree") messages across multiple slots.
@@ -94,12 +92,8 @@ trait BunchingSlotCombinator[T] extends SlotReplicatingCombinator[T] with PaxosR
       p
     }
 
-    override def createNewRoleInstance(s: Slot): ProposerRole = {
-      new ProposerRole(acceptors, myBallot) {
-        val self = ProposerBunchingActor.this.self
-      }
-    }
-
+    override def createNewRoleInstance(s: Slot): ProposerRole =
+      createProposer(acceptors, myBallot, self)
   }
 
   /* [Update for all Slots]

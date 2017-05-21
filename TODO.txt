@@ -22,11 +22,13 @@ What should be the decomposition of Paxos roles for this?
   into independent components. Perhapse, we can have a nice diagram representing trade-offs between precision
   (progress for specific instances) and efficiency (due to batching and over-approximation).
 
-* Following this approach, what should be the
+* Following this approach, what should be the verification conditions generating by using the "combinator"
 
 ================================================================
 
 [Next candidates for implementation]
+
+* Mencius (should be easy adaptable for the bunching pattern)
 
 * Fast Paxos
 

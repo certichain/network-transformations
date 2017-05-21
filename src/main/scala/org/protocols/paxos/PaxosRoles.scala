@@ -36,13 +36,33 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
   /** *********** Specific roles within the Paxos protocol **********/
   /** ***************************************************************/
 
+  type AcceptorRole = AcceptorRoleImpl
+  type ProposerRole = ProposerRoleImpl
+  type LearnerRole = LearnerRoleImpl
+
+  /**
+    * Use this to create new instances of roles, not the constructors!
+    */
+  def createAcceptor(slf: ActorRef): AcceptorRole = new AcceptorRoleImpl() {
+    val self = slf
+  }
+
+  def createProposer(acceptors: Seq[ActorRef], myBallot: Ballot, slf: ActorRef): ProposerRole =
+    new ProposerRoleImpl(acceptors, myBallot) {
+      val self = slf
+    }
+
+  def createLearner(acceptors: Seq[ActorRef], slf: ActorRef): LearnerRole =
+    new LearnerRoleImpl(acceptors) {
+    val self = slf
+  }
 
   /**
     * An acceptor STS
     *
     * @param myStartingBallot Initial ballot to start from
     */
-  abstract class AcceptorRole(val myStartingBallot: Ballot = -1) extends PaxosRole {
+  sealed abstract class AcceptorRoleImpl(val myStartingBallot: Ballot = -1) extends PaxosRole {
 
     var currentBallot: Ballot = myStartingBallot
     var chosenValues: List[(Ballot, T)] = Nil
@@ -87,7 +107,7 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
     * @param acceptors specific acceptors
     * @param myBallot  an assigned unique ballot
     */
-  abstract class ProposerRole(val acceptors: Seq[ActorRef], val myBallot: Ballot) extends PaxosRole {
+  sealed abstract class ProposerRoleImpl(val acceptors: Seq[ActorRef], val myBallot: Ballot) extends PaxosRole {
 
     import collection.mutable.{Map => MMap}
 
@@ -129,7 +149,7 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
       (toPropose, mBal, myResponses.keySet.toList)
     }
 
-    val step: Step = {
+    def step: Step = {
       case ProposeValue(v) =>
         // Only can be used to propose once
         if (myValueToPropose.isEmpty) myValueToPropose = Some(v)
@@ -176,7 +196,7 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
     *
     * @param acceptors acceptors to learn the result from
     */
-  abstract class LearnerRole(val acceptors: Seq[ActorRef]) extends PaxosRole {
+  sealed abstract class LearnerRoleImpl(val acceptors: Seq[ActorRef]) extends PaxosRole {
 
     def waitForQuery: Step = {
       case QueryLearner(sender) =>
@@ -211,6 +231,5 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
     def step: Step = currentStepFunction
 
   }
-
 
 }
