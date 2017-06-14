@@ -54,15 +54,15 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
 
   def createLearner(acceptors: Seq[ActorRef], slf: ActorRef): LearnerRole =
     new LearnerRoleImpl(acceptors) {
-    val self = slf
-  }
+      val self = slf
+    }
 
   /**
     * An acceptor STS
     *
     * @param myStartingBallot Initial ballot to start from
     */
-  sealed abstract class AcceptorRoleImpl(val myStartingBallot: Ballot = -1) extends PaxosRole {
+  abstract class AcceptorRoleImpl(val myStartingBallot: Ballot = -1) extends PaxosRole {
 
     var currentBallot: Ballot = myStartingBallot
     var chosenValues: List[(Ballot, T)] = Nil
@@ -107,13 +107,13 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
     * @param acceptors specific acceptors
     * @param myBallot  an assigned unique ballot
     */
-  sealed abstract class ProposerRoleImpl(val acceptors: Seq[ActorRef], val myBallot: Ballot) extends PaxosRole {
+  abstract class ProposerRoleImpl(val acceptors: Seq[ActorRef], val myBallot: Ballot) extends PaxosRole {
 
     import collection.mutable.{Map => MMap}
 
     private var myValueToPropose: Option[T] = None
     private var notYetProposed: Boolean = true
-    private var myResponses: MMap[ActorRef, Option[(Ballot, T)]] = MMap.empty
+    private val myResponses: MMap[ActorRef, Option[(Ballot, T)]] = MMap.empty
     private def gotQuorum = myResponses.size > acceptors.size / 2
     private def unconvincedAcceptors = acceptors.filter(a => !myResponses.isDefinedAt(a))
 
@@ -196,7 +196,7 @@ trait PaxosRoles[T] extends PaxosVocabulary[T] {
     *
     * @param acceptors acceptors to learn the result from
     */
-  sealed abstract class LearnerRoleImpl(val acceptors: Seq[ActorRef]) extends PaxosRole {
+  abstract class LearnerRoleImpl(val acceptors: Seq[ActorRef]) extends PaxosRole {
 
     def waitForQuery: Step = {
       case QueryLearner(sender) =>
