@@ -13,7 +13,7 @@ class TwoPhaseCommitTests(_system: ActorSystem) extends TestKit(_system) with Im
   def this() = this(ActorSystem("Consensus23Tests"))
 
   override def afterAll() {
-    system.shutdown()
+    system.terminate()
   }
 
   s"A decision" must {

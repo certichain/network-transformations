@@ -2,8 +2,7 @@ package org.protocols.paxos.singledecree
 
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestKit}
-import org.protocols.paxos.singledecree.monolithic.MonolithicSDPaxosFactory
-import org.protocols.paxos.{PaxosConfiguration, PaxosFactory}
+import org.protocols.paxos.PaxosFactory
 import org.scalatest._
 
 import scala.concurrent.duration._
@@ -19,7 +18,7 @@ abstract class AbstractSingleDecreePaxosTests(_system: ActorSystem) extends Test
   def this() = this(ActorSystem("SingleDecreePaxosTests"))
 
   override def afterAll() {
-    system.shutdown()
+    system.terminate()
   }
 
   protected def setupAndTestInstances[A](values: List[A], factory: PaxosFactory[A], acceptorNum : Int): Unit = {

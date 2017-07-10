@@ -1,10 +1,5 @@
 package org.protocols.consensus23
 
-import akka.actor._
-import akka.testkit.{ImplicitSender, TestKit}
-import org.scalatest._
-import scala.concurrent.duration._
-
 
 /**
  * @author Ilya Sergey

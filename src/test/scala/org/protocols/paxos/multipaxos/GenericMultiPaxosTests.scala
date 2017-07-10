@@ -20,7 +20,7 @@ abstract class GenericMultiPaxosTests(_system: ActorSystem) extends TestKit(_sys
 
   def fact(n: Int): Int = if (n < 1) 1 else n * fact(n - 1)
   override def afterAll() {
-    system.shutdown()
+    system.terminate()
   }
 
   val testMap1 = Map(1 -> List("A", "B", "C", "D", "E"),
@@ -114,8 +114,10 @@ abstract class GenericMultiPaxosTests(_system: ActorSystem) extends TestKit(_sys
     import factory._
 
     assert(res.size == learners.size, s"heard back from all learners")
-    assert(res.forall { case MessageForSlot(_, LearnedAgreedValue(v, l)) =>
-      v == res.head.msg.asInstanceOf[LearnedAgreedValue].value
+    assert(res.forall {
+      case MessageForSlot(_, LearnedAgreedValue(v, l)) =>
+        v == res.head.msg.asInstanceOf[LearnedAgreedValue].value
+      case _ => false
     }, s"All learners should return the same result at the end.")
   }
 
