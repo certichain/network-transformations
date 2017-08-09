@@ -16,18 +16,18 @@ class SingleDecreeRegisterFactory[T](val system: ActorSystem, val numA: Int)
   val paxos = createPaxosInstance(system, numA, 0, 0)
 
   // Returns a single-served register to propose
-  def getRegisterToPropose: SingleDecreeRegister[T] = {
+  def getRegisterToPropose: RoundBasedRegister[T] = {
     val k = numProposals
     numProposals = numProposals + 1
-    val regActor: AskableActorRef = system.actorOf(Props(classOf[RegisterActor], this, paxos.acceptors, k), name = s"RegisterMiddleman-P$k")
-    new SingleDecreeRegister[T](numA, regActor, k)
+    val regActor: AskableActorRef = system.actorOf(Props(classOf[SingleDecreeRegisterActor], this, paxos.acceptors, k), name = s"RegisterMiddleman-P$k")
+    new RoundBasedRegister[T](numA, regActor, k)
   }
 
   // This should serve as middleware
   /*
    * TODO: This should "virtualise" the proposer side
    */
-  class RegisterActor(acceptors: Seq[ActorRef], k: Ballot) extends Actor {
+  class SingleDecreeRegisterActor(acceptors: Seq[ActorRef], k: Ballot) extends Actor {
 
     private var cid: Option[ActorRef] = None
 
