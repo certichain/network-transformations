@@ -18,9 +18,4 @@ libraryDependencies ++= Seq(
 )
 
 scalacOptions ++= Seq(
-  "-language:postfixOps",
-  "-deprecation",
-  "-Xfatal-warnings",
-  "-Xlint",
-  "-unchecked"
 )
