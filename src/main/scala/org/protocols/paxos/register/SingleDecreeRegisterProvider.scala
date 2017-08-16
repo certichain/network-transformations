@@ -29,7 +29,7 @@ class SingleDecreeRegisterProvider[T](override val system: ActorSystem, override
   /**
     * A simple delegate for the register : only forwards the messages
     */
-  class SingleDecreeRegisterProxy(msgQueue: ConcurrentLinkedQueue[Any], k: Int) extends Actor {
+  class SingleDecreeRegisterProxy(msgQueue: ConcurrentLinkedQueue[Any], params: Seq[Any]) extends Actor {
 
     def receive: Receive = {
       case msg: RegisterMessage =>

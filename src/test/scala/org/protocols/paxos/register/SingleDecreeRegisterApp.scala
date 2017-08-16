@@ -15,9 +15,10 @@ object SingleDecreeRegisterApp extends App {
   val v1 = "Kyiv"
   val v2 = "Madrid"
   val v3 = "London"
+  val vs = Seq(v1, v2, v3)
 
-  val rts = for (v <- Seq(v1, v2, v3)) yield {
-    val r = registerProvider.getSingleServedRegister
+  val rts = for (k <- vs.indices; v = vs(k)) yield {
+    val r = registerProvider.getSingleServedRegister(k)
     val t = new Thread() {
       override def run(): Unit = {
         Thread.sleep((800 * Math.random()).toInt)
