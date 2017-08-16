@@ -14,7 +14,7 @@ class SingleDecreeRegisterProvider[T](override val system: ActorSystem, override
   /**
     * A simple actor wrapper for an acceptor only forwards the messages to the Acceptor STS and returns the results
     */
-  class SingleDecreeRegisterAcceptor extends Actor {
+  class SingleDecreeAcceptor extends Actor {
     // An actual acceptor
     private val myAcceptorMachine = new AcceptorForRegister(self)
 
@@ -48,7 +48,7 @@ class SingleDecreeRegisterProvider[T](override val system: ActorSystem, override
 
   }
 
-  val AcceptorClass: Class[_] = classOf[SingleDecreeRegisterAcceptor]
+  val AcceptorClass: Class[_] = classOf[SingleDecreeAcceptor]
   val RegisterProxyClass: Class[_] = classOf[SingleDecreeRegisterProxy]
 
 }

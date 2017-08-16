@@ -3,10 +3,8 @@ package org.protocols.paxos.register
 import java.util.concurrent.ConcurrentLinkedQueue
 
 import akka.actor.ActorRef
-import akka.util.Timeout
 
 import scala.collection.immutable.Nil
-import scala.concurrent.duration._
 import scala.language.postfixOps
 
 /**
@@ -44,29 +42,19 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
                             val k: Int) {
 
   private val n = acceptors.size
-  private val timeoutMillis = 200
+  private val timeoutMillis = 100
   val self: ActorRef = myProxy
 
-
-  // resorting to shared memory concruuency
-  private def processMsgs(f: Any => Unit): Unit = {
-    val iter = msgQueue.iterator()
-    while (iter.hasNext) {
-      val msg = iter.next()
-      iter.remove()
-      f(msg)
-    }
-  }
   def read(): (Boolean, Option[T]) = {
     for (j <- acceptors) yield emitMsg(READ(self, j, k))
     var maxKW = 0
     var maxV: Option[T] = None
     var responses = 0
-
     Thread.sleep(timeoutMillis)
     //    println
 
-    processMsgs {
+    processMessages {
+
       case m@ackREAD(j, _, `k`, kWv) =>
         //        println(s"[READ] Received: $m")
         responses = responses + 1
@@ -85,7 +73,8 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
             maxV = Some(v.asInstanceOf[T])
           case _ =>
         }
-        // return (false, None)
+      // return (false, None)
+
       case _ => // Do nothing after the time-out
     }
 
@@ -94,12 +83,9 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
 
   private def write(vW: T): Boolean = {
     for (j <- acceptors) yield emitMsg(WRITE(self, j, k, vW))
-
     Thread.sleep(timeoutMillis)
-    //    println
-
     var responses = 0
-    processMsgs {
+    processMessages {
       case m@ackWRITE(j, _, `k`) =>
         //        println(s"[WRITE] Received: $m")
         responses = responses + 1
@@ -107,7 +93,6 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
       case nackWRITE(j, _, `k`) => return false
       case _ => // Do nothing after the time-out
     }
-
     false
   }
 
@@ -122,10 +107,21 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
     }
   }
 
-  private def emitMsg(msg: Any): Unit = {
-    // import akka.pattern.ask
-    // ask(myProxy, msg)
-    myProxy ! msg
+  /** ************************************
+    * Utility methods
+    * **************************************/
+  private def emitMsg(msg: Any): Unit = myProxy ! msg
+
+  // resorting to shared memory concruuency
+  private def processMessages(f: PartialFunction[Any, Unit]): Unit = {
+    val iter = msgQueue.iterator()
+    while (iter.hasNext) {
+      val msg = iter.next()
+      if (f.isDefinedAt(msg)) {
+        iter.remove()
+        f(msg)
+      }
+    }
   }
 
 }
