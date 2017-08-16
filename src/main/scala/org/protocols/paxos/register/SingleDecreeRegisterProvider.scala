@@ -9,7 +9,7 @@ import akka.actor.{Actor, ActorRef, ActorSystem}
   */
 
 class SingleDecreeRegisterProvider[T](override val system: ActorSystem, override val numA: Int)
-    extends GenericRegisterProvider[T](system, numA) {
+    extends RoundRegisterProvider[T](system, numA) {
 
   /**
     * A simple actor wrapper for an acceptor only forwards the messages to the Acceptor STS and returns the results

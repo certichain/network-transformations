@@ -12,7 +12,7 @@ import org.scalatest.{BeforeAndAfterAll, MustMatchers, WordSpecLike}
 class SingleDecreeRegisterTests(_system: ActorSystem) extends TestKit(_system) with ImplicitSender with
     WordSpecLike with MustMatchers with BeforeAndAfterAll {
 
-  def this() = this(ActorSystem(s"RegisterBasedPaxosTests-${hashCode()}"))
+  def this() = this(ActorSystem(s"SingleDecreeRegisterTests-${hashCode()}"))
 
   s"All participants in a Single Decree Register-Based Paxos" must {
     s"agree on the same accepted value" in {
@@ -30,7 +30,7 @@ class SingleDecreeRegisterTests(_system: ActorSystem) extends TestKit(_system) w
         new Thread() {
           override def run(): Unit = {
             Thread.sleep((800 * Math.random()).toInt)
-            println(s"Proposing: $v")
+            println(s"Proposing value [$v] with ballot [$k]")
             val r = registerProvider.getSingleServedRegister(k)
             r.propose(v)
             barrier.countDown()
@@ -39,35 +39,39 @@ class SingleDecreeRegisterTests(_system: ActorSystem) extends TestKit(_system) w
       }
 
       // Run all tests
-      println("Starting parallel proposals")
+      println("Starting parallel proposals and awaiting for the results")
       for (t <- ts) {
         t.start()
       }
       barrier.await(10, TimeUnit.SECONDS)
 
 
-      //      Thread.sleep(5000)
-      println("Collecting results")
+      println
+      print("Collecting results... ")
       // Collecting results
       val results =
         for {k <- vs.indices
              r = registerProvider.getSingleServedRegister(k)}
           yield r.read()._2
+      println(s"Done.")
 
-      println(s"Asserting that all values are set")
+      print(s"Asserting that values for all slots are decided... ")
       assert(results.forall(_.nonEmpty), results)
+      println(s"OK!")
 
       assert(results.nonEmpty)
       val v0 = results.head.get
 
-      println(s"Asserting that all values are the same")
+      print(s"Asserting that all values are same... ")
       for (vOpt <- results) {
         assert(vOpt.get == v0, s"Should be $v0, but it's ${vOpt.get} in\n$results")
       }
+      println(s"OK!")
 
       _system.terminate()
-      println(s"Values: $results")
+      println(s"Values: [${results.map(_.get).mkString(", ")}]")
       println("All good")
+      println
     }
   }
 }

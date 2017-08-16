@@ -2,7 +2,7 @@ package org.protocols.paxos.register
 
 import java.util.concurrent.ConcurrentLinkedQueue
 
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.{ActorSystem, Props}
 import org.protocols.paxos.PaxosException
 
 import scala.collection.mutable.{Map => MMap}
@@ -10,7 +10,7 @@ import scala.collection.mutable.{Map => MMap}
 /**
   * @author Ilya Sergey
   */
-abstract class GenericRegisterProvider[T](val system: ActorSystem, val numA: Int) {
+abstract class RoundRegisterProvider[T](val system: ActorSystem, val numA: Int) {
 
   val AcceptorClass: Class[_]
   val RegisterProxyClass: Class[_]

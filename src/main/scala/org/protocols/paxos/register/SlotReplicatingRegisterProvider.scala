@@ -11,7 +11,7 @@ import scala.collection.mutable.{Map => MMap}
   */
 
 class SlotReplicatingRegisterProvider[T](override val system: ActorSystem, override val numA: Int)
-    extends GenericRegisterProvider[T](system, numA) {
+    extends RoundRegisterProvider[T](system, numA) {
 
   type Slot = Int
 
@@ -40,14 +40,16 @@ class SlotReplicatingRegisterProvider[T](override val system: ActorSystem, overr
     }
   }
 
-  class SlotReplicatingRegisterProxy(msgQueue: ConcurrentLinkedQueue[Any], k: Int, s: Slot) extends Actor {
+  class SlotReplicatingRegisterProxy(msgQueue: ConcurrentLinkedQueue[Any], params: Seq[Any]) extends Actor {
+    val mySlot = params.head.asInstanceOf[Slot]
+
     def receive: Receive = {
-      case rms@RegisterMessageForSlot(slot, msg: RegisterMessage) =>
-        if (msg.dest == self) {
-          msgQueue.add(msg) // Incoming message
-        } else {
-          msg.dest ! rms // Outgoing message
-        }
+      // Incoming message
+      case rms@RegisterMessageForSlot(slot, msg: RegisterMessage) if msg.dest == self =>
+        msgQueue.add(msg)
+      // Outgoing message
+      case msg: RegisterMessage =>
+        msg.dest ! RegisterMessageForSlot(mySlot, msg)
       case _ =>
     }
 
