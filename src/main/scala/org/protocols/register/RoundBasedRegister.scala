@@ -42,23 +42,16 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
                             val k: Int,
                             val contextParams: Any) {
 
-  private val n = acceptors.size
-  private val myMessageQueue: ConcurrentLinkedQueue[Any] = new ConcurrentLinkedQueue[Any]();
-  private val timeoutMillis = 100
-
-  // Middleman for virtualisation
-  private val self: ActorRef = myProxy
-
   def read(): (Boolean, Option[T]) = {
+    // Send out requests
     for (j <- acceptors) yield emitMsg(READ(self, j, k))
+    Thread.sleep(timeoutMillis)
+
+    // Collect responses
     var maxKW = 0
     var maxV: Option[T] = None
     var responses = 0
-    Thread.sleep(timeoutMillis)
-    //    println
-
     processMessages {
-
       case m@ackREAD(j, _, `k`, kWv) =>
         //        println(s"[READ] Received: $m")
         responses = responses + 1
@@ -78,26 +71,26 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
           case _ =>
         }
       // return (false, None)
-
-      case _ => // Do nothing after the time-out
     }
 
-    if (responses >= Math.ceil((n + 1) / 2)) (true, maxV) else (false, maxV)
+    if (responses >= Math.ceil((acceptors.size + 1) / 2)) (true, maxV) else (false, maxV)
   }
 
   private def write(vW: T): Boolean = {
+    // Send out proposals
     for (j <- acceptors) yield emitMsg(WRITE(self, j, k, vW))
     Thread.sleep(timeoutMillis)
+
+    // Collect responses
     var responses = 0
     processMessages {
       case m@ackWRITE(j, _, `k`) =>
         //        println(s"[WRITE] Received: $m")
         responses = responses + 1
-        if (responses >= Math.ceil((n + 1) / 2)) {
+        if (responses >= Math.ceil((acceptors.size + 1) / 2)) {
           return true
         }
       case nackWRITE(j, _, `k`) => return false
-      case _ => // Do nothing after the time-out
     }
     false
   }
@@ -113,9 +106,15 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
     }
   }
 
-  /** ************************************
-    * Utility methods
-    * **************************************/
+
+  /** ****************************************************************************
+    * Utility methods and auixiliary fields
+    * ****************************************************************************/
+
+  private val myMessageQueue: ConcurrentLinkedQueue[Any] = new ConcurrentLinkedQueue[Any]()
+  private val timeoutMillis = 100
+  private val self: ActorRef = myProxy // Middleman for virtualisation
+
   private def emitMsg(msg: RegisterMessage): Unit = self ! MessageToProxy(msg, contextParams)
 
   def putMsg(msg: Any): Unit = myMessageQueue.add(msg)
