@@ -28,7 +28,7 @@ abstract class GenericRegisterProvider[T](val system: ActorSystem, val numA: Int
     val k = numProposals
     numProposals = numProposals + 1
     val msgQueue = new ConcurrentLinkedQueue[Any]()
-    val regActor = system.actorOf(Props(RegisterProxyClass, this, acceptors, msgQueue, k), name = s"RegisterMiddleman-P$k")
+    val regActor = system.actorOf(Props(RegisterProxyClass, this, msgQueue, k), name = s"RegisterMiddleman-P$k")
     new RoundBasedRegister[T](acceptors, regActor, msgQueue, k)
   }
 
