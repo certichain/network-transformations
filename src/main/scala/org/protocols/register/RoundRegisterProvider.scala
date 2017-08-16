@@ -1,4 +1,4 @@
-package org.protocols.paxos.register
+package org.protocols.register
 
 import java.util.concurrent.ConcurrentLinkedQueue
 
@@ -30,7 +30,7 @@ abstract class RoundRegisterProvider[T](val system: ActorSystem, val numA: Int) 
     * @param params Here, we're exploiting damn dynamic reflection by passing params as Seq[Any]
     *               in order to account for both single-decree and multi-decree case. Therefore, the convention is that
     *               the first argument should always be k, i.e., the supposed ballot.
-    * @return single-served register to propose
+    * @return single-served org.protocols.register to propose
     */
   def getSingleServedRegister(params: Any*): RoundBasedRegister[T] = {
     val msgQueue = new ConcurrentLinkedQueue[Any]()

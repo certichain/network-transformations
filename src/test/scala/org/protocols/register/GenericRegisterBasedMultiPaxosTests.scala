@@ -1,4 +1,4 @@
-package org.protocols.paxos.register
+package org.protocols.register
 
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
@@ -26,7 +26,7 @@ abstract class GenericRegisterBasedMultiPaxosTests(val _system: ActorSystem)
 
 
   // Main test
-  s"All participants in a Single Decree Register-Based Paxos" must {
+  s"All participants in a Register-Based MultiPaxos" must {
     s"agree on the accepted values for each slot" in {
 
       val numAcceptors = 7

@@ -1,4 +1,4 @@
-package org.protocols.paxos.register
+package org.protocols.register
 
 import java.util.concurrent.ConcurrentLinkedQueue
 

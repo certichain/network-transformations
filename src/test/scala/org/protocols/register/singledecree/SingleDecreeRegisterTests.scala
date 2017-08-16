@@ -1,4 +1,4 @@
-package org.protocols.paxos.register
+package org.protocols.register.singledecree
 
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 

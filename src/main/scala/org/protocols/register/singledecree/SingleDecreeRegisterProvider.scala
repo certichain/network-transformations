@@ -1,8 +1,9 @@
-package org.protocols.paxos.register
+package org.protocols.register.singledecree
 
 import java.util.concurrent.ConcurrentLinkedQueue
 
-import akka.actor.{Actor, ActorRef, ActorSystem}
+import akka.actor.{Actor, ActorSystem}
+import org.protocols.register.{AcceptorForRegister, RegisterMessage, RoundRegisterProvider}
 
 /**
   * @author Ilya Sergey
@@ -27,7 +28,7 @@ class SingleDecreeRegisterProvider[T](override val system: ActorSystem, override
   }
 
   /**
-    * A simple delegate for the register : only forwards the messages
+    * A simple delegate for the org.protocols.register : only forwards the messages
     */
   class SingleDecreeRegisterProxy(msgQueue: ConcurrentLinkedQueue[Any], params: Seq[Any]) extends Actor {
 

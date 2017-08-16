@@ -1,9 +1,10 @@
-package org.protocols.paxos.register
+package org.protocols.register.multipaxos
 
 import java.util.concurrent.ConcurrentLinkedQueue
 
 import akka.actor.{Actor, ActorSystem}
-import org.protocols.paxos.combinators.MessageForSlot
+import org.protocols.register.{AcceptorForRegister, RegisterMessage, RoundRegisterProvider}
+
 import scala.collection.mutable.{Map => MMap}
 
 /**

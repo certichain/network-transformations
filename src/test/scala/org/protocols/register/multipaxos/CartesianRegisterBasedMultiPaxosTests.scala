@@ -1,6 +1,6 @@
-package org.protocols.paxos.register
+package org.protocols.register.multipaxos
 
-import akka.actor.ActorSystem
+import org.protocols.register.{GenericRegisterBasedMultiPaxosTests, RoundRegisterProvider}
 
 /**
   * @author Ilya Sergey
