@@ -42,27 +42,20 @@ class SlotReplicatingRegisterProvider[T](override val system: ActorSystem, overr
 
   class SlotReplicatingRegisterProxy(msgQueue: ConcurrentLinkedQueue[Any], k: Int, s: Slot) extends Actor {
     def receive: Receive = {
-      case msg: RegisterMessage =>
+      case rms@RegisterMessageForSlot(slot, msg: RegisterMessage) =>
         if (msg.dest == self) {
           msgQueue.add(msg) // Incoming message
         } else {
-          msg.dest ! msg // Outgoing message
+          msg.dest ! rms // Outgoing message
         }
       case _ =>
     }
 
   }
 
-
-  def getRegisterForSlot(slot: Int)(k: Int): RoundBasedRegister[T] = {
-    // TODO: implement me!
-    ???
-  }
-
-
   // Instantiate the middleware
   val AcceptorClass: Class[_] = classOf[SlotReplicatingAcceptor]
-  val RegisterProxyClass: Class[_] = ???
+  val RegisterProxyClass: Class[_] = classOf[SlotReplicatingRegisterProxy]
 }
 
 case class RegisterMessageForSlot[+M](slot: Int, msg: M)

@@ -15,7 +15,7 @@ abstract class GenericRegisterProvider[T](val system: ActorSystem, val numA: Int
   val AcceptorClass: Class[_]
   val RegisterProxyClass: Class[_]
 
-  val proxyMap: MMap[Int, ActorRef] = MMap.empty
+  val registerMap: MMap[String, RoundBasedRegister[T]] = MMap.empty
 
   // cannot be larger than the number of proposers
   lazy private val acceptors = {
@@ -37,17 +37,24 @@ abstract class GenericRegisterProvider[T](val system: ActorSystem, val numA: Int
 
     assert(params.nonEmpty, s"Parameter sequence is empty!")
 
-    // the proxy doesn't care about the ballot, so we only pass the tails of params
-    val regActor = system.actorOf(Props(RegisterProxyClass, this, msgQueue, params.tail),
-      name = s"RegisterMiddleman-P${params.mkString("-")}")
+    // Get the proxy for the given ID
+    val proxyId = params.mkString("-")
+    if (registerMap.contains(proxyId)) {
+      registerMap(proxyId)
+    } else {
+      // the proxy doesn't care about the ballot, so we only pass the tails of params
+      val act = system.actorOf(Props(RegisterProxyClass, this, msgQueue, params.tail),
+        name = s"RegisterMiddleman-P$proxyId")
 
-    val p0 = params.head
-    assert(p0.isInstanceOf[Int], s"First parameter must be a ballot of type Int: $p0")
-    val k = p0.asInstanceOf[Int]
+      val p0 = params.head
+      assert(p0.isInstanceOf[Int], s"First parameter must be a ballot of type Int: $p0")
+      val k = p0.asInstanceOf[Int]
+      val reg = new RoundBasedRegister[T](acceptors, act, msgQueue, k)
 
-    new RoundBasedRegister[T](acceptors, regActor, msgQueue, k)
+      registerMap.put(proxyId, reg)
+      reg
+    }
   }
-
+  
 }
-
 

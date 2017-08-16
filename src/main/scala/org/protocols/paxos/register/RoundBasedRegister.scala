@@ -89,7 +89,9 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
       case m@ackWRITE(j, _, `k`) =>
         //        println(s"[WRITE] Received: $m")
         responses = responses + 1
-        if (responses >= Math.ceil((n + 1) / 2)) return true
+        if (responses >= Math.ceil((n + 1) / 2)) {
+          return true
+        }
       case nackWRITE(j, _, `k`) => return false
       case _ => // Do nothing after the time-out
     }
