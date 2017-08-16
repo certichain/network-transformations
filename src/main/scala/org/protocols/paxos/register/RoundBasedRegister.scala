@@ -19,7 +19,7 @@ abstract sealed class RegisterMessage {
 
 final case class READ(cid: ActorRef, dest: ActorRef, k: Int) extends RegisterMessage
 final case class ackREAD(j: ActorRef, dest: ActorRef, k: Int, kWv: Option[(Int, Any)]) extends RegisterMessage
-final case class nackREAD(j: ActorRef, dest: ActorRef, k: Int) extends RegisterMessage
+final case class nackREAD(j: ActorRef, dest: ActorRef, k: Int, kWv: Option[(Int, Any)]) extends RegisterMessage
 
 final case class WRITE(cid: ActorRef, dest: ActorRef, k: Int, vW: Any) extends RegisterMessage
 final case class ackWRITE(j: ActorRef, dest: ActorRef, k: Int) extends RegisterMessage
@@ -44,8 +44,9 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
                             val k: Int) {
 
   private val n = acceptors.size
-  implicit val timeout = Timeout(5 seconds)
+  private val timeoutMillis = 200
   val self: ActorRef = myProxy
+
 
   // resorting to shared memory concruuency
   private def processMsgs(f: Any => Unit): Unit = {
@@ -56,15 +57,13 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
       f(msg)
     }
   }
-
-
   def read(): (Boolean, Option[T]) = {
     for (j <- acceptors) yield emitMsg(READ(self, j, k))
     var maxKW = 0
     var maxV: Option[T] = None
     var responses = 0
 
-    Thread.sleep(1000)
+    Thread.sleep(timeoutMillis)
     //    println
 
     processMsgs {
@@ -78,17 +77,25 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
           case _ =>
         }
 
-      case nackREAD(j, _, `k`) => return (false, None)
+      case nackREAD(j, _, `k`, kWv) =>
+        // Learn the value anyway
+        kWv match {
+          case Some((kW, v)) if kW >= maxKW =>
+            maxKW = kW
+            maxV = Some(v.asInstanceOf[T])
+          case _ =>
+        }
+        // return (false, None)
       case _ => // Do nothing after the time-out
     }
 
-    if (responses >= Math.ceil((n + 1) / 2)) (true, maxV) else (false, None)
+    if (responses >= Math.ceil((n + 1) / 2)) (true, maxV) else (false, maxV)
   }
 
   private def write(vW: T): Boolean = {
     for (j <- acceptors) yield emitMsg(WRITE(self, j, k, vW))
 
-    Thread.sleep(1000)
+    Thread.sleep(timeoutMillis)
     //    println
 
     var responses = 0
@@ -142,7 +149,7 @@ class AcceptorForRegister(val self: ActorRef,
     case m@READ(cid, `self`, k) =>
       // Using non-strict inequality here for multi-paxos
       if (read >= k) {
-        emitMsg(nackREAD(self, cid, k))
+        emitMsg(nackREAD(self, cid, k, findMaxBallotAccepted(chosenValues)))
       } else {
         bumpUpBallot(k)
         emitMsg(ackREAD(self, cid, k, findMaxBallotAccepted(chosenValues)))
