@@ -23,27 +23,31 @@ final case class WRITE(cid: ActorRef, dest: ActorRef, k: Int, vW: Any) extends R
 final case class ackWRITE(j: ActorRef, dest: ActorRef, k: Int) extends RegisterMessage
 final case class nackWRITE(j: ActorRef, dest: ActorRef, k: Int) extends RegisterMessage
 
+case class MessageToProxy(rm: RegisterMessage, params: Any)
+
 /**
-  * @param acceptors identifiers of acceptors to communicate with through the proxy
-  * @param myProxy   middleman for virtualisation, which talks to acceptors on my belaf
-  * @param k         my proposer's ballot
+  * @param acceptors     identifiers of acceptors to communicate with through the proxy
+  * @param k             my proposer's ballot
+  * @param contextParams parameters per this instance, passed to the proxy (e.g., a slot)
   *
   *
-  *                  Here, the "point-cut" is "acceptors ? ..." which knows how to redirect the message.
-  *                  In the future, cid will be responsible for attaching extra information, like, e.g., a slot.
+  *                      Here, the "point-cut" is "acceptors ? ..." which knows how to redirect the message.
+  *                      In the future, cid will be responsible for attaching extra information, like, e.g., a slot.
   *
-  *                  So getRegister(s) implemented somewhere else will make sure that cid dispatches the request
-  *                  to the correct slot.
+  *                      So getRegister(s) implemented somewhere else will make sure that cid dispatches the request
+  *                      to the correct slot.
   */
 class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
-                            // In fact, this is going to be a local proxy
                             private val myProxy: ActorRef,
-                            private val msgQueue: ConcurrentLinkedQueue[Any],
-                            val k: Int) {
+                            val k: Int,
+                            val contextParams: Any) {
 
   private val n = acceptors.size
+  private val myMessageQueue: ConcurrentLinkedQueue[Any] = new ConcurrentLinkedQueue[Any]();
   private val timeoutMillis = 100
-  val self: ActorRef = myProxy
+
+  // Middleman for virtualisation
+  private val self: ActorRef = myProxy
 
   def read(): (Boolean, Option[T]) = {
     for (j <- acceptors) yield emitMsg(READ(self, j, k))
@@ -112,11 +116,13 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
   /** ************************************
     * Utility methods
     * **************************************/
-  private def emitMsg(msg: Any): Unit = myProxy ! msg
+  private def emitMsg(msg: RegisterMessage): Unit = self ! MessageToProxy(msg, contextParams)
+
+  def putMsg(msg: Any): Unit = myMessageQueue.add(msg)
 
   // resorting to shared memory concruuency
   private def processMessages(f: PartialFunction[Any, Unit]): Unit = {
-    val iter = msgQueue.iterator()
+    val iter = myMessageQueue.iterator()
     while (iter.hasNext) {
       val msg = iter.next()
       if (f.isDefinedAt(msg)) {

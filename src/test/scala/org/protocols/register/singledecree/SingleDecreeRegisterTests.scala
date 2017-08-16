@@ -30,7 +30,7 @@ class SingleDecreeRegisterTests(_system: ActorSystem) extends TestKit(_system) w
         new Thread() {
           override def run(): Unit = {
             Thread.sleep((800 * Math.random()).toInt)
-            println(s"Proposing value [$v] with ballot [$k]")
+            println(s"Proposing with ballot [$k] value [$v].")
             val r = registerProvider.getSingleServedRegister(k)
             r.propose(v)
             barrier.countDown()
@@ -75,31 +75,3 @@ class SingleDecreeRegisterTests(_system: ActorSystem) extends TestKit(_system) w
     }
   }
 }
-
-
-//  val register1 = registerProvider.getSingleServedRegister
-//  val register2 = registerProvider.getSingleServedRegister
-//  val register3 = registerProvider.getSingleServedRegister
-//  println(s"Proposing: $v1")
-//  val w1 = register1.propose(v1)
-//  assert(w1.nonEmpty)
-//  assert(w1.get == "Leuven")
-//
-//  println(s"Proposing: $v2")
-//  val w2 = register2.propose(v2)
-//  println(s"Proposing: $v3")
-//  val w3 = register3.propose(v3)
-//
-//  println("Check that subsequent results agree with the first one.")
-//  assert(w2.get == w1.get, s"Should be ${w1.get}, but it's ${w2.get}")
-//  assert(w3.get == w1.get, s"Should be ${w1.get}, but it's ${w3.get}")
-//
-//  println("Checking reads.")
-//  val z1 = register1.read()._2.get
-//  val z2 = register2.read()._2.get
-//  val z3 = register2.read()._2.get
-//
-//  // Sanity check: reading
-//  assert(z1 == w1.get, s"Should be ${w1.get}, but it's $z1")
-//  assert(z2 == w1.get, s"Should be ${w1.get}, but it's $z2")
-//  assert(z3 == w1.get, s"Should be ${w1.get}, but it's $z3")

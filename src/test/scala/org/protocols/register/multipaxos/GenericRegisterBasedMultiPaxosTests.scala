@@ -1,9 +1,10 @@
-package org.protocols.register
+package org.protocols.register.multipaxos
 
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit}
+import org.protocols.register.RoundRegisterProvider
 import org.scalatest.{BeforeAndAfterAll, MustMatchers, WordSpecLike}
 
 /**
@@ -43,7 +44,7 @@ abstract class GenericRegisterBasedMultiPaxosTests(val _system: ActorSystem)
             for (s <- testMap1.keys) {
               val r = registerProvider.getSingleServedRegister(k, s)
               val v = testMap1(s)(k)
-              println(s"Proposing for slot [$s] value [$v] with ballot [$k]")
+              println(s"Proposing for slot [$s] with ballot [$k] value [$v].")
               Thread.sleep((800 * Math.random()).toInt)
               r.propose(v)
             }
@@ -92,7 +93,7 @@ abstract class GenericRegisterBasedMultiPaxosTests(val _system: ActorSystem)
       }
 
       println
-      println(s"Results:")
+      println(s"Results per slot:")
       for (s <- results.keySet.toSeq.sorted;
            rs = results(s)) {
         println(s"$s -> [${rs.map(_.get).mkString(", ")}]")

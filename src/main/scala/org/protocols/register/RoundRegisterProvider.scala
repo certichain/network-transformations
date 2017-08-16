@@ -2,10 +2,10 @@ package org.protocols.register
 
 import java.util.concurrent.ConcurrentLinkedQueue
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{ActorRef, ActorSystem, Props}
 import org.protocols.paxos.PaxosException
 
-import scala.collection.mutable.{Map => MMap}
+import scala.collection.concurrent.{Map => MMap, TrieMap => TMap}
 
 /**
   * @author Ilya Sergey
@@ -15,7 +15,8 @@ abstract class RoundRegisterProvider[T](val system: ActorSystem, val numA: Int) 
   val AcceptorClass: Class[_]
   val RegisterProxyClass: Class[_]
 
-  val registerMap: MMap[String, RoundBasedRegister[T]] = MMap.empty
+  val proxyMap: MMap[Int, ActorRef] = TMap.empty
+  val globalRegisterMap: MMap[ActorRef, MMap[Any, RoundBasedRegister[T]]] = TMap.empty
 
   // cannot be larger than the number of proposers
   lazy private val acceptors = {
@@ -27,34 +28,41 @@ abstract class RoundRegisterProvider[T](val system: ActorSystem, val numA: Int) 
   }
 
   /**
-    * @param params Here, we're exploiting damn dynamic reflection by passing params as Seq[Any]
-    *               in order to account for both single-decree and multi-decree case. Therefore, the convention is that
-    *               the first argument should always be k, i.e., the supposed ballot.
-    * @return single-served org.protocols.register to propose
+    * @param contextParam Here, we're exploiting damn dynamic reflection by passing params Any,
+    *                     so it might be both Unit (for SD Paxos) and Slot (for Multi-Paxos).
+    *                     This way we can account for both single-decree and multi-decree case.
+
+    * @return single-served round-based register to propose through
     */
-  def getSingleServedRegister(params: Any*): RoundBasedRegister[T] = {
-    val msgQueue = new ConcurrentLinkedQueue[Any]()
+  def getSingleServedRegister(k: Int, contextParam: Any = ()): RoundBasedRegister[T] = {
+    // Try to retrieve the register
+    val registerCode = contextParam
 
-    assert(params.nonEmpty, s"Parameter sequence is empty!")
-
-    // Get the proxy for the given ID
-    val proxyId = params.mkString("-")
-    if (registerMap.contains(proxyId)) {
-      registerMap(proxyId)
-    } else {
-      // the proxy doesn't care about the ballot, so we only pass the tails of params
-      val act = system.actorOf(Props(RegisterProxyClass, this, msgQueue, params.tail),
-        name = s"RegisterMiddleman-P$proxyId")
-
-      val p0 = params.head
-      assert(p0.isInstanceOf[Int], s"First parameter must be a ballot of type Int: $p0")
-      val k = p0.asInstanceOf[Int]
-      val reg = new RoundBasedRegister[T](acceptors, act, msgQueue, k)
-
-      registerMap.put(proxyId, reg)
-      reg
+    // Case 1: Register (and its proxy) already exist
+    if (proxyMap.isDefinedAt(k) &&
+        globalRegisterMap(proxyMap(k)).isDefinedAt(registerCode)) {
+      return globalRegisterMap(proxyMap(k))(registerCode)
     }
+
+    // Case 2: Proxy actor exists, but not the register
+    if (proxyMap.isDefinedAt(k) &&
+        !globalRegisterMap(proxyMap(k)).isDefinedAt(registerCode)) {
+      val aref = proxyMap(k)
+      val register = new RoundBasedRegister[T](acceptors, aref, k, contextParam)
+      globalRegisterMap(proxyMap(k)).put(registerCode, register)
+      return register
+    }
+
+    // Case 3: Proxy actor doesn't exist (and hence neither does the register)
+    val mmap: MMap[Any, RoundBasedRegister[T]] = TMap.empty
+    val aref = system.actorOf(Props(RegisterProxyClass, this, mmap), name = s"RegisterMiddleman-$k")
+    val register = new RoundBasedRegister[T](acceptors, aref, k, contextParam)
+    mmap.put(contextParam, register)
+    proxyMap.put(k, aref)
+    globalRegisterMap.put(aref, mmap)
+
+    register
   }
-  
+
 }
 

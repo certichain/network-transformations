@@ -1,9 +1,9 @@
 package org.protocols.register.singledecree
 
-import java.util.concurrent.ConcurrentLinkedQueue
-
 import akka.actor.{Actor, ActorSystem}
-import org.protocols.register.{AcceptorForRegister, RegisterMessage, RoundRegisterProvider}
+import org.protocols.register._
+
+import scala.collection.concurrent.{Map => MMap}
 
 /**
   * @author Ilya Sergey
@@ -30,15 +30,17 @@ class SingleDecreeRegisterProvider[T](override val system: ActorSystem, override
   /**
     * A simple delegate for the org.protocols.register : only forwards the messages
     */
-  class SingleDecreeRegisterProxy(msgQueue: ConcurrentLinkedQueue[Any], params: Seq[Any]) extends Actor {
+  class SingleDecreeRegisterProxy(registerMap: MMap[Any, RoundBasedRegister[Any]]) extends Actor {
 
     def receive: Receive = {
-      case msg: RegisterMessage =>
-        if (msg.dest == self) {
-          msgQueue.add(msg) // Incoming message
-        } else {
-          msg.dest ! msg // Outgoing message
-        }
+      // Incoming message
+      case msg: RegisterMessage if msg.dest == self =>
+        // Only one register is managed here
+        assert(registerMap.keySet.toSeq == Seq(()))
+        val register = registerMap(())
+        register.putMsg(msg)
+      // Outgoing message, ignoring parameters
+      case MessageToProxy(msg, _) => msg.dest ! msg
       case _ =>
     }
 
