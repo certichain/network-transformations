@@ -7,36 +7,74 @@ import akka.actor.ActorRef
 import scala.collection.immutable.Nil
 import scala.language.postfixOps
 
+
 /**
-  * Register-based messages
+  * An acceptor STS
+  *
+  * @param initRead Initial ballot to start from
   */
-abstract sealed class RegisterMessage {
-  // An actor to send this message to
-  def dest: ActorRef
+class AcceptorForRegister(val self: ActorRef,
+                          private val initRead: Int = 0) {
+
+  type Ballot = Int
+  type ToSend = RegisterMessage
+  type Step = PartialFunction[Any, RegisterMessage]
+
+  var read: Ballot = initRead
+  var chosenValues: List[(Ballot, Any)] = Nil
+
+  val step: Step = {
+    case m@READ(cid, `self`, k) =>
+      // Using non-strict inequality here for multi-paxos
+      if (read >= k) {
+        emitMsg(nackREAD(self, cid, k, findMaxBallotAccepted(chosenValues)))
+      } else {
+        bumpUpBallot(k)
+        emitMsg(ackREAD(self, cid, k, findMaxBallotAccepted(chosenValues)))
+      }
+
+    case WRITE(cid, `self`, k, vW) =>
+      if (read > k) {
+        emitMsg(nackWRITE(self, cid, k))
+      } else {
+        // record the value
+        chosenValues = (k, vW) :: chosenValues
+        read = k
+        // we may even ignore this step
+        emitMsg(ackWRITE(self, cid, k))
+      }
+  }
+
+
+  /** ****************************************************************************
+    * Utility methods and auxiliary fields
+    * ****************************************************************************/
+
+  // This method is _always_ safe to run, as it only reduces the set of Acceptor's behaviors
+  def bumpUpBallot(b: Ballot): Unit = if (b > read) {
+    read = b
+  }
+
+  // Some library functions
+  private def findMaxBallotAccepted(chosenValues: List[(Ballot, Any)]) = chosenValues match {
+    case Nil => None
+    case x => Some(x.maxBy(_._1))
+  }
+
+  // Adapt the message for the wrapping combinator
+  private def emitMsg(msg: RegisterMessage) = msg
+
 }
 
-final case class READ(cid: ActorRef, dest: ActorRef, k: Int) extends RegisterMessage
-final case class ackREAD(j: ActorRef, dest: ActorRef, k: Int, kWv: Option[(Int, Any)]) extends RegisterMessage
-final case class nackREAD(j: ActorRef, dest: ActorRef, k: Int, kWv: Option[(Int, Any)]) extends RegisterMessage
-
-final case class WRITE(cid: ActorRef, dest: ActorRef, k: Int, vW: Any) extends RegisterMessage
-final case class ackWRITE(j: ActorRef, dest: ActorRef, k: Int) extends RegisterMessage
-final case class nackWRITE(j: ActorRef, dest: ActorRef, k: Int) extends RegisterMessage
-
-case class MessageToProxy(rm: RegisterMessage, params: Any)
 
 /**
+  * A reusable round-based register implementation
+  *
   * @param acceptors     identifiers of acceptors to communicate with through the proxy
-  * @param k             my proposer's ballot
+  * @param myProxy       A middleman for virtualisation of message handling
+  * @param k             my ballot
   * @param contextParams parameters per this instance, passed to the proxy (e.g., a slot)
-  *
-  *
-  *                      Here, the "point-cut" is "acceptors ? ..." which knows how to redirect the message.
-  *                      In the future, cid will be responsible for attaching extra information, like, e.g., a slot.
-  *
-  *                      So getRegister(s) implemented somewhere else will make sure that cid dispatches the request
-  *                      to the correct slot.
-  */
+  **/
 class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
                             private val myProxy: ActorRef,
                             val k: Int,
@@ -108,7 +146,7 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
 
 
   /** ****************************************************************************
-    * Utility methods and auixiliary fields
+    * Utility methods and auxiliary fields
     * ****************************************************************************/
 
   private val myMessageQueue: ConcurrentLinkedQueue[Any] = new ConcurrentLinkedQueue[Any]()
@@ -133,62 +171,25 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
 
 }
 
+/////////////////////////////////////////////////////////////////////////////////
 /**
-  * An acceptor STS
-  *
-  * @param initRead Initial ballot to start from
+  * Register-based messages
   */
-class AcceptorForRegister(val self: ActorRef,
-                          private val initRead: Int = 0) {
-
-  type Ballot = Int
-  type ToSend = RegisterMessage
-  type Step = PartialFunction[Any, RegisterMessage]
-
-  var read: Ballot = initRead
-  var chosenValues: List[(Ballot, Any)] = Nil
-
-  val step: Step = {
-    case m@READ(cid, `self`, k) =>
-      // Using non-strict inequality here for multi-paxos
-      if (read >= k) {
-        emitMsg(nackREAD(self, cid, k, findMaxBallotAccepted(chosenValues)))
-      } else {
-        bumpUpBallot(k)
-        emitMsg(ackREAD(self, cid, k, findMaxBallotAccepted(chosenValues)))
-      }
-
-    case WRITE(cid, `self`, k, vW) =>
-      if (read > k) {
-        emitMsg(nackWRITE(self, cid, k))
-      } else {
-        // record the value
-        chosenValues = (k, vW) :: chosenValues
-        read = k
-        // we may even ignore this step
-        emitMsg(ackWRITE(self, cid, k))
-      }
-  }
-
-  // This method is _always_ safe to run, as it only reduces the set of Acceptor's behaviors
-  def bumpUpBallot(b: Ballot): Unit = {
-    if (b > read) {
-      read = b
-    }
-  }
-
-  // Some library functions
-  def findMaxBallotAccepted(chosenValues: List[(Ballot, Any)]): Option[(Ballot, Any)] =
-    chosenValues match {
-      case Nil => None
-      case x => Some(x.maxBy(_._1))
-    }
-
-  // Adapt the message for the wrapping combinator
-  private def emitMsg(msg: RegisterMessage) = msg
-
+/////////////////////////////////////////////////////////////////////////////////
+abstract sealed class RegisterMessage {
+  // An actor to send this message to
+  def dest: ActorRef
 }
 
+final case class READ(cid: ActorRef, dest: ActorRef, k: Int) extends RegisterMessage
+final case class ackREAD(j: ActorRef, dest: ActorRef, k: Int, kWv: Option[(Int, Any)]) extends RegisterMessage
+final case class nackREAD(j: ActorRef, dest: ActorRef, k: Int, kWv: Option[(Int, Any)]) extends RegisterMessage
+
+final case class WRITE(cid: ActorRef, dest: ActorRef, k: Int, vW: Any) extends RegisterMessage
+final case class ackWRITE(j: ActorRef, dest: ActorRef, k: Int) extends RegisterMessage
+final case class nackWRITE(j: ActorRef, dest: ActorRef, k: Int) extends RegisterMessage
+
+case class MessageToProxy(rm: RegisterMessage, params: Any)
 
 
 
