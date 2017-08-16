@@ -8,7 +8,7 @@ import org.protocols.register.RoundRegisterProvider
 
 class WideningRegisterBasedMultiPaxosTests extends GenericRegisterBasedMultiPaxosTests {
 
-  def getRegisterProvider(numAcceptors: Int): RoundRegisterProvider[String] = {
+  def makeRegisterProvider(numAcceptors: Int): RoundRegisterProvider[String] = {
     new WideningSlotRegisterProvider[String](_system, numAcceptors)
   }
 

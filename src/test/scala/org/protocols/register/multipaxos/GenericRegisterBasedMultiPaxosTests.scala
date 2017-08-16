@@ -17,7 +17,7 @@ abstract class GenericRegisterBasedMultiPaxosTests(val _system: ActorSystem)
 
   def this() = this(ActorSystem(s"ReplicatedRegisterTests-${hashCode()}"))
 
-  def getRegisterProvider(numAcceptors: Int): RoundRegisterProvider[String]
+  def makeRegisterProvider(numAcceptors: Int): RoundRegisterProvider[String]
 
   val testMap1 = Map[Int, List[String]](1 -> List("A", "B", "C", "D", "E"),
     2 -> List("Moscow", "Madrid", "London", "Kyiv", "Paris"),
@@ -31,7 +31,7 @@ abstract class GenericRegisterBasedMultiPaxosTests(val _system: ActorSystem)
     s"agree on the accepted values for each slot" in {
 
       val numAcceptors = 7
-      val registerProvider = getRegisterProvider(numAcceptors)
+      val registerProvider = makeRegisterProvider(numAcceptors)
 
       // Number of proposals
       val numProp = testMap1.values.map(_.size).max
