@@ -18,7 +18,7 @@ class SingleDecreeRegisterProvider[T](override val system: ActorSystem, override
     // An actual acceptor
     private val myAcceptorMachine = new AcceptorForRegister(self)
 
-    override def receive: Receive = {
+    def receive: Receive = {
       // Just send all the messages by their destinations
       case m if myAcceptorMachine.step.isDefinedAt(m) =>
         val msg = myAcceptorMachine.step(m)
@@ -32,15 +32,13 @@ class SingleDecreeRegisterProvider[T](override val system: ActorSystem, override
   class SingleDecreeRegisterProxy(msgQueue: ConcurrentLinkedQueue[Any], k: Int) extends Actor {
 
     def receive: Receive = {
-      case m => m match {
-        case msg: RegisterMessage =>
-          if (msg.dest == self) {
-            msgQueue.add(msg) // Incoming message
-          } else {
-            msg.dest ! msg // Outgoing message
-          }
-        case _ =>
-      }
+      case msg: RegisterMessage =>
+        if (msg.dest == self) {
+          msgQueue.add(msg) // Incoming message
+        } else {
+          msg.dest ! msg // Outgoing message
+        }
+      case _ =>
     }
 
   }
