@@ -94,7 +94,7 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
     var yesResponses: Set[ActorRef] = Set.empty
     var noResponses: Set[ActorRef] = Set.empty
 
-    processMessages {
+    processMessagesWhenEnough {
       case m@ackREAD(j, _, `k`, kWv) =>
         // Accounting for duplicate messages
         if (!yesResponses.contains(j)) {
@@ -131,7 +131,7 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
 
     // Collect responses
     var yesResponses: Set[ActorRef] = Set.empty
-    processMessages {
+    processMessagesWhenEnough {
       case m@ackWRITE(j, _, `k`) =>
         if (!yesResponses.contains(j)) {
           yesResponses = yesResponses + j
@@ -171,14 +171,13 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
   def deliver(msg: Any): Unit = myMailbox.add(msg)
 
   /**
-    * Processing the messages in the mailbox
+    * Processing the messages in the mailbox.
+    * Resorting to shameful shared-memory concurrency... [sigh].
     *
     * @param f function to select and process messages
     */
-  // TODO Resorting to shameful shared memory concruuency
-  private def processMessages(f: PartialFunction[Any, Unit]): Unit = {
+  private def processMessagesWhenEnough(f: PartialFunction[Any, Unit]) {
     // Wait until enough messages received instead of timeout
-    // TODO: discuss what is the optimal measure to wat
     while (myMailbox.size() < quorumSize) {}
 
     val iter = myMailbox.iterator()
