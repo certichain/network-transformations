@@ -8,6 +8,7 @@ import scala.collection.concurrent.{Map => MMap, TrieMap => TMap}
 /**
   * @author Ilya Sergey
   */
+case class RegisterMessageForSlot[+M](slot: Int, msg: M)
 
 class SlotReplicatingRegisterProvider[T](override val system: ActorSystem, override val numA: Int)
     extends RoundRegisterProvider[T](system, numA) {
@@ -41,14 +42,17 @@ class SlotReplicatingRegisterProvider[T](override val system: ActorSystem, overr
   }
 
 
+  /**
+    * A Proxy that accepts slot-marked messages
+    */
   class SlotReplicatingRegisterProxy(registerMap: MMap[Any, RoundBasedRegister[Any]]) extends Actor {
     def receive: Receive = {
       // Incoming message
       case rms@RegisterMessageForSlot(slot, msg: RegisterMessage)
         // Do not react to the slots that haven't been requested yet
         if msg.dest == self && registerMap.isDefinedAt(slot) =>
-        // TODO: in the future we can also create our own registers right here
-        registerMap(slot).putMsg(msg)
+        // TODO: in the future we can also create our own registers right here and add them to the map
+        registerMap(slot).deliver(msg)
 
       // Outgoing message
       case MessageToProxy(msg: RegisterMessage, contextParam: Any) =>
@@ -65,4 +69,3 @@ class SlotReplicatingRegisterProvider[T](override val system: ActorSystem, overr
   val RegisterProxyClass: Class[_] = classOf[SlotReplicatingRegisterProxy]
 }
 
-case class RegisterMessageForSlot[+M](slot: Int, msg: M)

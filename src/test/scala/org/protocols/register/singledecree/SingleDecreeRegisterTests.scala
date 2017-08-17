@@ -29,7 +29,7 @@ class SingleDecreeRegisterTests(_system: ActorSystem) extends TestKit(_system) w
       val ts = for (k <- vs.indices; v = vs(k)) yield {
         new Thread() {
           override def run(): Unit = {
-            Thread.sleep((800 * Math.random()).toInt)
+            Thread.sleep((200 * Math.random()).toInt)
             println(s"Proposing with ballot [$k] value [$v].")
             val r = registerProvider.getSingleServedRegister(k)
             r.propose(v)
@@ -52,7 +52,14 @@ class SingleDecreeRegisterTests(_system: ActorSystem) extends TestKit(_system) w
       val results =
         for {k <- vs.indices
              r = registerProvider.getSingleServedRegister(k)}
-          yield r.read()._2
+          yield {
+            var res = r.read()._2
+            // Wait for result
+            while (res.isEmpty) {
+              res = r.read()._2
+            }
+            res
+          }
       println(s"Done.")
 
       print(s"Asserting that values for all slots are decided... ")

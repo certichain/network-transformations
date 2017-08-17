@@ -38,7 +38,8 @@ class SingleDecreeRegisterProvider[T](override val system: ActorSystem, override
         // Only one register is managed here
         assert(registerMap.keySet.toSeq == Seq(()))
         val register = registerMap(())
-        register.putMsg(msg)
+        // Deliver message
+        register.deliver(msg)
       // Outgoing message, ignoring parameters
       case MessageToProxy(msg, _) => msg.dest ! msg
       case _ =>

@@ -80,53 +80,64 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
                             val k: Int,
                             val contextParams: Any) {
 
+  private val quorumSize = Math.ceil((acceptors.size + 1) / 2)
+
   def read(): (Boolean, Option[T]) = {
     // Send out requests
     for (j <- acceptors) yield emitMsg(READ(self, j, k))
-    Thread.sleep(timeoutMillis)
 
     // Collect responses
     var maxKW = 0
     var maxV: Option[T] = None
-    var responses = 0
+
+    // Collect both positive and negative responses
+    var yesResponses: Set[ActorRef] = Set.empty
+    var noResponses: Set[ActorRef] = Set.empty
+
     processMessages {
       case m@ackREAD(j, _, `k`, kWv) =>
-        //        println(s"[READ] Received: $m")
-        responses = responses + 1
-        kWv match {
-          case Some((kW, v)) if kW >= maxKW =>
-            maxKW = kW
-            maxV = Some(v.asInstanceOf[T])
-          case _ =>
+        // Accounting for duplicate messages
+        if (!yesResponses.contains(j)) {
+          yesResponses = yesResponses + j
+          kWv match {
+            case Some((kW, v)) if kW >= maxKW =>
+              maxKW = kW
+              maxV = Some(v.asInstanceOf[T])
+            case _ =>
+          }
         }
 
       case nackREAD(j, _, `k`, kWv) =>
-        // Learn the value anyway
-        kWv match {
-          case Some((kW, v)) if kW >= maxKW =>
-            maxKW = kW
-            maxV = Some(v.asInstanceOf[T])
-          case _ =>
+        // Accounting for duplicate messages
+        if (!noResponses.contains(j)) {
+          noResponses = noResponses + j
+          // Learn the value anyway
+          kWv match {
+            case Some((kW, v)) if kW >= maxKW =>
+              maxKW = kW
+              maxV = Some(v.asInstanceOf[T])
+            case _ =>
+          }
         }
-      // return (false, None)
     }
 
-    if (responses >= Math.ceil((acceptors.size + 1) / 2)) (true, maxV) else (false, maxV)
+    // Return result of reading
+    if (yesResponses.size >= quorumSize) (true, maxV) else (false, maxV)
   }
 
   private def write(vW: T): Boolean = {
     // Send out proposals
     for (j <- acceptors) yield emitMsg(WRITE(self, j, k, vW))
-    Thread.sleep(timeoutMillis)
 
     // Collect responses
-    var responses = 0
+    var yesResponses: Set[ActorRef] = Set.empty
     processMessages {
       case m@ackWRITE(j, _, `k`) =>
-        //        println(s"[WRITE] Received: $m")
-        responses = responses + 1
-        if (responses >= Math.ceil((acceptors.size + 1) / 2)) {
-          return true
+        if (!yesResponses.contains(j)) {
+          yesResponses = yesResponses + j
+          if (yesResponses.size >= quorumSize) {
+            return true
+          }
         }
       case nackWRITE(j, _, `k`) => return false
     }
@@ -149,17 +160,28 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
     * Utility methods and auxiliary fields
     * ****************************************************************************/
 
-  private val myMessageQueue: ConcurrentLinkedQueue[Any] = new ConcurrentLinkedQueue[Any]()
+  private val myMailbox: ConcurrentLinkedQueue[Any] = new ConcurrentLinkedQueue[Any]()
   private val timeoutMillis = 100
   private val self: ActorRef = myProxy // Middleman for virtualisation
 
-  private def emitMsg(msg: RegisterMessage): Unit = self ! MessageToProxy(msg, contextParams)
+  private def emitMsg(msg: RegisterMessage): Unit = {
+    self ! MessageToProxy(msg, contextParams)
+  }
 
-  def putMsg(msg: Any): Unit = myMessageQueue.add(msg)
+  def deliver(msg: Any): Unit = myMailbox.add(msg)
 
-  // resorting to shared memory concruuency
+  /**
+    * Processing the messages in the mailbox
+    *
+    * @param f function to select and process messages
+    */
+  // TODO Resorting to shameful shared memory concruuency
   private def processMessages(f: PartialFunction[Any, Unit]): Unit = {
-    val iter = myMessageQueue.iterator()
+    // Wait until enough messages received instead of timeout
+    // TODO: discuss what is the optimal measure to wat
+    while (myMailbox.size() < quorumSize) {}
+
+    val iter = myMailbox.iterator()
     while (iter.hasNext) {
       val msg = iter.next()
       if (f.isDefinedAt(msg)) {

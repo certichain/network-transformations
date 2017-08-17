@@ -68,7 +68,14 @@ abstract class GenericRegisterBasedMultiPaxosTests(val _system: ActorSystem)
       val results = (for (s <- testMap1.keys) yield {
         val rs = for (k <- 0 until numProp;
                       r = registerProvider.getSingleServedRegister(k, s))
-          yield r.read()._2
+          yield {
+            var res = r.read()._2
+            // Wait until a good result is obtained
+            while (res.isEmpty) {
+              res = r.read()._2
+            }
+            res
+          }
         s -> rs.toList
       }).toMap
       println(s"Done.")
@@ -78,7 +85,7 @@ abstract class GenericRegisterBasedMultiPaxosTests(val _system: ActorSystem)
       for (s <- results.keySet.toSeq.sorted;
            rs = results(s)) {
         assert(rs.size == numProp, s"Not enough results (${rs.size}, but should be $numProp) in $rs")
-        assert(rs.forall(_.nonEmpty), s"All results for slot $s should be empty: $rs")
+        assert(rs.forall(_.nonEmpty), s"All results for slot $s should be non-empty: $rs")
       }
       println(s"OK!")
 
@@ -93,7 +100,7 @@ abstract class GenericRegisterBasedMultiPaxosTests(val _system: ActorSystem)
       }
 
       println
-      println(s"Results per slot:")
+      println(s"Results (as read after proposing) per slot for each k:")
       for (s <- results.keySet.toSeq.sorted;
            rs = results(s)) {
         println(s"$s -> [${rs.map(_.get).mkString(", ")}]")

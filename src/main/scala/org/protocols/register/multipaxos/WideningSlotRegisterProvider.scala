@@ -36,7 +36,8 @@ class WideningSlotRegisterProvider[T](override val system: ActorSystem, override
         // Execute phase one for all of the acceptors
         for (s <- slotAcceptorMap.keySet + slot) {
           val accInstance = getMachineForSlot(s)
-          // Send back the results for all slots
+          // Send back the results for all for which the result has been obtained,
+          // thus short-circuiting the internal logic
           val toSend = getMachineForSlot(slot).step(incoming)
           val dst = toSend.dest
           dst ! RegisterMessageForSlot(slot, toSend)
