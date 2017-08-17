@@ -16,7 +16,7 @@ class SlotReplicatingRegisterProvider[T](override val system: ActorSystem, overr
   type Slot = Int
 
   // Replicating acceptor (one acceptor maintains multiple slots)
-  class SlotReplicatingAcceptor extends Actor {
+  class CartesianAcceptor extends Actor {
     protected val slotAcceptorMap: MMap[Slot, AcceptorForRegister] = TMap.empty
 
     protected def getMachineForSlot(slot: Slot): AcceptorForRegister = {
@@ -45,7 +45,7 @@ class SlotReplicatingRegisterProvider[T](override val system: ActorSystem, overr
   /**
     * A Proxy that accepts slot-marked messages
     */
-  class SlotReplicatingRegisterProxy(registerMap: MMap[Any, RoundBasedRegister[Any]]) extends Actor {
+  class CartesianRegisterProxy(registerMap: MMap[Any, RoundBasedRegister[Any]]) extends Actor {
     def receive: Receive = {
       // Incoming message
       case rms@RegisterMessageForSlot(slot, msg: RegisterMessage)
@@ -64,7 +64,7 @@ class SlotReplicatingRegisterProvider[T](override val system: ActorSystem, overr
   }
 
   // Instantiate the middleware
-  val AcceptorClass: Class[_] = classOf[SlotReplicatingAcceptor]
-  val RegisterProxyClass: Class[_] = classOf[SlotReplicatingRegisterProxy]
+  val AcceptorClass: Class[_] = classOf[CartesianAcceptor]
+  val RegisterProxyClass: Class[_] = classOf[CartesianRegisterProxy]
 }
 

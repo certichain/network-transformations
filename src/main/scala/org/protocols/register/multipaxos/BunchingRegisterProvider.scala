@@ -1,6 +1,6 @@
 package org.protocols.register.multipaxos
 
-import akka.actor.{Actor, ActorSystem}
+import akka.actor.{Actor, ActorRef, ActorSystem}
 import org.protocols.register._
 
 import scala.collection.concurrent.{Map => MMap}
@@ -9,30 +9,32 @@ import scala.collection.concurrent.{Map => MMap}
   * @author Ilya Sergey
   */
 
-class BunchingRegisterProvider [T](override val system: ActorSystem, override val numA: Int)
+class BunchingRegisterProvider[T](override val system: ActorSystem, override val numA: Int)
     extends WideningSlotRegisterProvider[T](system, numA) {
 
   class BunchingAcceptor extends WideningSlotReplicatingAcceptor {
 
     override def receive: Receive = {
 
-      // TODO: Change so it would bunch
-      case RegisterMessageForSlot(slot, incoming@READ(cid, j, b)) =>
+      case RegisterMessageForSlot(slot, incoming@READ(cid, j, k)) =>
 
-        // Update the ballot and execute the result for all acceptors
-        myHighestSeenBallot = Math.max(myHighestSeenBallot, b)
-
-        // Execute phase one for *all* of the acceptors for all slots
+        myHighestSeenBallot = Math.max(myHighestSeenBallot, k)
         val actualSlots = slotAcceptorMap.keySet + slot
-        for (s <- actualSlots) {
-          val accInstance = getMachineForSlot(s)
-          // Send back the results for all for which the result has been obtained,
-          // thus short-circuiting the internal logic
-          val toSend = getMachineForSlot(slot).step(incoming)
-          val dst = toSend.dest
-          val rms = RegisterMessageForSlot(slot, toSend)
-          dst ! rms
-        }
+
+        val slotResults: Seq[(Slot, RegisterMessage)] =
+          (for (s <- actualSlots) yield {
+            val toSend = getMachineForSlot(s).step(incoming)
+            (s, toSend)
+          }).toSeq
+
+        // All have the same suggested k
+        assert(slotResults.forall(sr => sr._2.k == k))
+        // All have the same destination
+        assert(slotResults.forall(sr => sr._2.dest == cid))
+        // All are Phase 1-responses
+        assert(slotResults.forall(sr => sr._2.isInstanceOf[ackREAD] || sr._2.isInstanceOf[nackREAD]))
+
+        cid ! BunchedAcceptedValues(self, k, slotResults)
 
       case m => super.receive(m)
 
@@ -43,19 +45,13 @@ class BunchingRegisterProvider [T](override val system: ActorSystem, override va
       extends WideningSlotReplicatingRegisterProxy(registerMap) {
 
     override def receive: Receive = {
-      // TODO: Add impedance matcher for bunching
-
-      // Incoming message to a register that might or might not exist
-      case rms@RegisterMessageForSlot(slot, msg: RegisterMessage) if msg.dest == self =>
-        if (registerMap.isDefinedAt(slot)) {
-          registerMap(slot).deliver(msg)
-        } else {
-          // Make a new register as by demand of this message, which came ahead of time,
-          // and deliver its message
-          val reg = new RoundBasedRegister[Any](acceptors, self, msg.k, slot)
-          registerMap.put(slot, reg)
+      case BunchedAcceptedValues(_, k, slotMsgs) =>
+        for ((s, msg) <- slotMsgs) {
+          val reg = getRegisterForSlot(s, k)
           reg.deliver(msg)
         }
+
+      // TODO: Short-circuit needless read-requests
 
       case m => super.receive(m)
     }
@@ -66,5 +62,8 @@ class BunchingRegisterProvider [T](override val system: ActorSystem, override va
   override val AcceptorClass: Class[_] = classOf[BunchingAcceptor]
   override val RegisterProxyClass: Class[_] = classOf[BunchingRegisterProxy]
 
-
 }
+
+// A message type for a bunched acceptor response
+case class BunchedAcceptedValues(a: ActorRef, k: Int, slotVals: Seq[(Int, RegisterMessage)])
+

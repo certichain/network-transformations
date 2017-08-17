@@ -11,7 +11,7 @@ import org.scalatest.{BeforeAndAfterAll, MustMatchers, WordSpecLike}
   * @author Ilya Sergey
   */
 
-abstract class GenericRegisterBasedMultiPaxosTests(val _system: ActorSystem)
+abstract class GenericRegisterMultiPaxosTests(val _system: ActorSystem)
     extends TestKit(_system) with ImplicitSender with
         WordSpecLike with MustMatchers with BeforeAndAfterAll {
 

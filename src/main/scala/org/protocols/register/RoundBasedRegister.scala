@@ -200,11 +200,12 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
         }
         // Collected sufficiently many letters to process: can now shoot
         if (inbox.size >= quorumSize) {
-          // Process all the collected incoming mails
+          // Process all the collected incoming mails with f
           for (m <- inbox) {
-            myMailbox.remove(m)
             f(m)
           }
+          // Clean the inbox from similar messages
+          myMailbox.removeIf(f.isDefinedAt(_))
           shouldProcess = false
         }
       }

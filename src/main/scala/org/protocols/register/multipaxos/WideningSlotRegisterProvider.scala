@@ -13,7 +13,7 @@ import scala.collection.mutable.{Set => MSet}
 class WideningSlotRegisterProvider[T](override val system: ActorSystem, override val numA: Int)
     extends SlotReplicatingRegisterProvider[T](system, numA) {
 
-  class WideningSlotReplicatingAcceptor extends SlotReplicatingAcceptor {
+  class WideningSlotReplicatingAcceptor extends CartesianAcceptor {
 
     protected var myHighestSeenBallot: Int = -1
 
@@ -40,12 +40,9 @@ class WideningSlotRegisterProvider[T](override val system: ActorSystem, override
         // Execute phase one for *all* of the acceptors for all slots
         val actualSlots = slotAcceptorMap.keySet + slot
         for (s <- actualSlots) {
-          val accInstance = getMachineForSlot(s)
-          // Send back the results for all for which the result has been obtained,
-          // thus short-circuiting the internal logic
-          val toSend = getMachineForSlot(slot).step(incoming)
+          val toSend = getMachineForSlot(s).step(incoming)
           val dst = toSend.dest
-          val rms = RegisterMessageForSlot(slot, toSend)
+          val rms = RegisterMessageForSlot(s, toSend)
           dst ! rms
         }
 
@@ -59,24 +56,29 @@ class WideningSlotRegisterProvider[T](override val system: ActorSystem, override
     * A Proxy that accepts slot-marked messages
     */
   class WideningSlotReplicatingRegisterProxy(registerMap: MMap[Any, RoundBasedRegister[Any]])
-      extends SlotReplicatingRegisterProxy(registerMap) {
+      extends CartesianRegisterProxy(registerMap) {
 
     override def receive: Receive = {
       // Incoming message to a register that might or might not exist
       case rms@RegisterMessageForSlot(slot, msg: RegisterMessage) if msg.dest == self =>
-        if (registerMap.isDefinedAt(slot)) {
-          registerMap(slot).deliver(msg)
-        } else {
-          // Make a new register as by demand of this message, which came ahead of time,
-          // and deliver its message
-          val reg = new RoundBasedRegister[Any](acceptors, self, msg.k, slot)
-          registerMap.put(slot, reg)
-          reg.deliver(msg)
-        }
+        val reg = getRegisterForSlot(slot, msg.k)
+
+        reg.deliver(msg)
 
       case m => super.receive(m)
     }
 
+    protected def getRegisterForSlot(slot: Slot, k: Int) = {
+      if (registerMap.isDefinedAt(slot)) {
+        registerMap(slot)
+      } else {
+        // Make a new register as by demand of this message, which came ahead of time,
+        // and deliver its Phase-1 message
+        val reg = new RoundBasedRegister[Any](acceptors, self, k, slot)
+        registerMap.put(slot, reg)
+        reg
+      }
+    }
   }
 
   // Instantiate the middleware
