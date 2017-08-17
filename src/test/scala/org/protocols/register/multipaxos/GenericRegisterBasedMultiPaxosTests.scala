@@ -41,14 +41,17 @@ abstract class GenericRegisterBasedMultiPaxosTests(val _system: ActorSystem)
       val ts = for (k <- 0 until numProp) yield {
         new Thread() {
           override def run(): Unit = {
-            for (s <- testMap1.keys) {
+            val slots = testMap1.keys.toSeq.sorted
+            for (s <- slots) {
               val r = registerProvider.getSingleServedRegister(k, s)
               val v = testMap1(s)(k)
               println(s"Proposing for slot [$s] with ballot [$k] value [$v].")
-              Thread.sleep((800 * Math.random()).toInt)
-              r.propose(v)
+              Thread.sleep((500 * Math.random()).toInt)
+              val w = r.propose(v)
+              // println(s"Result for k=$k, slot=$s: [$w].")
             }
             // Done with proposing
+
             barrier.countDown()
           }
         }

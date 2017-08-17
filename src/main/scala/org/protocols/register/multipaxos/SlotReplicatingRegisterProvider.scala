@@ -23,13 +23,13 @@ class SlotReplicatingRegisterProvider[T](override val system: ActorSystem, overr
       slotAcceptorMap.get(slot) match {
         case Some(role) => role
         case None =>
-          val role = new AcceptorForRegister(self)
-          slotAcceptorMap.update(slot, role)
-          role
+          val acceptor = new AcceptorForRegister(self)
+          slotAcceptorMap.update(slot, acceptor)
+          acceptor
       }
     }
 
-    protected def getAllMachines: Map[Slot, AcceptorForRegister] =
+    protected def getAllAcceptorMachines: Map[Slot, AcceptorForRegister] =
       (for (s <- slotAcceptorMap.keys) yield (s, getMachineForSlot(s))).toMap
 
     override def receive: Receive = {

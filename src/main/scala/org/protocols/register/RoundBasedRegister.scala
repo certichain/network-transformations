@@ -26,22 +26,22 @@ class AcceptorForRegister(val self: ActorRef,
   val step: Step = {
     case m@READ(cid, `self`, k) =>
       // Using non-strict inequality here for multi-paxos
-      if (read >= k) {
-        emitMsg(nackREAD(self, cid, k, findMaxBallotAccepted(chosenValues)))
-      } else {
+      if (k >= read) {
         bumpUpBallot(k)
         emitMsg(ackREAD(self, cid, k, findMaxBallotAccepted(chosenValues)))
+      } else {
+        emitMsg(nackREAD(self, cid, k, findMaxBallotAccepted(chosenValues)))
       }
 
     case WRITE(cid, `self`, k, vW) =>
-      if (read > k) {
-        emitMsg(nackWRITE(self, cid, k))
-      } else {
+      if (read == k) {
         // record the value
         chosenValues = (k, vW) :: chosenValues
         read = k
         // we may even ignore this step
         emitMsg(ackWRITE(self, cid, k))
+      } else {
+        emitMsg(nackWRITE(self, cid, k))
       }
   }
 
@@ -94,7 +94,7 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
     var yesResponses: Set[ActorRef] = Set.empty
     var noResponses: Set[ActorRef] = Set.empty
 
-    processMessagesWhenEnough {
+    processIncomingMessages {
       case m@ackREAD(j, _, `k`, kWv) =>
         // Accounting for duplicate messages
         if (!yesResponses.contains(j)) {
@@ -131,7 +131,7 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
 
     // Collect responses
     var yesResponses: Set[ActorRef] = Set.empty
-    processMessagesWhenEnough {
+    processIncomingMessages {
       case m@ackWRITE(j, _, `k`) =>
         if (!yesResponses.contains(j)) {
           yesResponses = yesResponses + j
@@ -150,7 +150,9 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
       case (true, vOpt) =>
         val vW = if (vOpt.isEmpty) v0 else vOpt.get
         val res = write(vW)
-        if (res) Some(vW) else None
+        if (res) {
+          Some(vW)
+        } else None
       case (false, _) => None
     }
   }
@@ -168,7 +170,12 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
     self ! MessageToProxy(msg, contextParams)
   }
 
-  def deliver(msg: Any): Unit = myMailbox.add(msg)
+  def deliver(msg: Any): Unit = {
+    myMailbox.synchronized {
+      // Need to synchronize in order to avoid infinite loops with `processIncomingMessages`
+      myMailbox.add(msg)
+    }
+  }
 
   /**
     * Processing the messages in the mailbox.
@@ -176,16 +183,30 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
     *
     * @param f function to select and process messages
     */
-  private def processMessagesWhenEnough(f: PartialFunction[Any, Unit]) {
+  private def processIncomingMessages(f: PartialFunction[Any, Unit]) {
     // Wait until enough messages received instead of timeout
-    while (myMailbox.size() < quorumSize) {}
+    var shouldProcess = true
 
-    val iter = myMailbox.iterator()
-    while (iter.hasNext) {
-      val msg = iter.next()
-      if (f.isDefinedAt(msg)) {
-        iter.remove()
-        f(msg)
+    // Loop while not sufficiently many mails collected
+    while (shouldProcess) {
+      myMailbox.synchronized {
+        val iter = myMailbox.iterator()
+        var inbox: Set[Any] = Set.empty
+        while (iter.hasNext) {
+          val msg = iter.next()
+          if (f.isDefinedAt(msg) && !inbox.contains(msg)) {
+            inbox = inbox + msg
+          }
+        }
+        // Collected sufficiently many letters to process: can now shoot
+        if (inbox.size >= quorumSize) {
+          // Process all the collected incoming mails
+          for (m <- inbox) {
+            myMailbox.remove(m)
+            f(m)
+          }
+          shouldProcess = false
+        }
       }
     }
   }
@@ -200,6 +221,8 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
 abstract sealed class RegisterMessage {
   // An actor to send this message to
   def dest: ActorRef
+  // Ballot, subject of interaction
+  def k: Int
 }
 
 final case class READ(cid: ActorRef, dest: ActorRef, k: Int) extends RegisterMessage

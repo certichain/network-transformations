@@ -19,7 +19,7 @@ abstract class RoundRegisterProvider[T](val system: ActorSystem, val numA: Int) 
   val globalRegisterMap: MMap[ActorRef, MMap[Any, RoundBasedRegister[T]]] = TMap.empty
 
   // cannot be larger than the number of proposers
-  lazy private val acceptors = {
+  lazy protected val acceptors = {
     // Sanity checks for the configuration
     if (numA <= 0) throw PaxosException(s"Too few acceptors (currently $numA)")
     for (i <- 0 until numA) yield {
