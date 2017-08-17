@@ -54,9 +54,7 @@ class SlotReplicatingRegisterProvider[T](override val system: ActorSystem, overr
         registerMap(slot).deliver(msg)
 
       // Outgoing message
-      case MessageToProxy(msg: RegisterMessage, contextParam: Any) =>
-        assert(contextParam.isInstanceOf[Int])
-        val slot = contextParam.asInstanceOf[Int]
+      case MessageToProxy(msg: RegisterMessage, slot: Int) =>
         msg.dest ! RegisterMessageForSlot(slot, msg)
       case _ =>
     }
