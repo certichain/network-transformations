@@ -46,7 +46,7 @@ abstract class GenericRegisterMultiPaxosTests(val _system: ActorSystem)
               val r = registerProvider.getSingleServedRegister(k, s)
               val v = testMap1(s)(k)
               println(s"Proposing for slot [$s] with ballot [$k] value [$v].")
-              Thread.sleep((500 * Math.random()).toInt)
+              Thread.sleep(((150 + 50 * k) * Math.random()).toInt)
               val w = r.propose(v)
               // println(s"Result for k=$k, slot=$s: [$w].")
             }
