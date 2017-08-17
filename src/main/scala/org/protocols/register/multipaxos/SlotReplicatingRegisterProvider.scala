@@ -51,7 +51,6 @@ class SlotReplicatingRegisterProvider[T](override val system: ActorSystem, overr
       case rms@RegisterMessageForSlot(slot, msg: RegisterMessage)
         // Do not react to the slots that haven't been requested yet
         if msg.dest == self && registerMap.isDefinedAt(slot) =>
-        // TODO: in the future we can also create our own registers right here and add them to the map
         registerMap(slot).deliver(msg)
 
       // Outgoing message

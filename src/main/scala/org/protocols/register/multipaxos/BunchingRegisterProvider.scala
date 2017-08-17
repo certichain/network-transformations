@@ -4,34 +4,19 @@ import akka.actor.{Actor, ActorSystem}
 import org.protocols.register._
 
 import scala.collection.concurrent.{Map => MMap}
-import scala.collection.mutable.{Set => MSet}
 
 /**
   * @author Ilya Sergey
   */
 
-class WideningSlotRegisterProvider[T](override val system: ActorSystem, override val numA: Int)
-    extends SlotReplicatingRegisterProvider[T](system, numA) {
+class BunchingRegisterProvider [T](override val system: ActorSystem, override val numA: Int)
+    extends WideningSlotRegisterProvider[T](system, numA) {
 
-  class WideningSlotReplicatingAcceptor extends SlotReplicatingAcceptor {
-
-    protected var myHighestSeenBallot: Int = -1
-
-    protected override def getMachineForSlot(slot: Slot): AcceptorForRegister = {
-      val acc = slotAcceptorMap.get(slot) match {
-        case Some(role) => role
-        case None =>
-          val role = new AcceptorForRegister(self)
-          slotAcceptorMap.update(slot, role)
-          role
-      }
-      acc.bumpUpBallot(myHighestSeenBallot)
-      slotAcceptorMap.update(slot, acc)
-      acc
-    }
-
+  class BunchingAcceptor extends WideningSlotReplicatingAcceptor {
 
     override def receive: Receive = {
+
+      // TODO: Change so it would bunch
       case RegisterMessageForSlot(slot, incoming@READ(cid, j, b)) =>
 
         // Update the ballot and execute the result for all acceptors
@@ -52,16 +37,14 @@ class WideningSlotRegisterProvider[T](override val system: ActorSystem, override
       case m => super.receive(m)
 
     }
-
   }
 
-  /**
-    * A Proxy that accepts slot-marked messages
-    */
-  class WideningSlotReplicatingRegisterProxy(registerMap: MMap[Any, RoundBasedRegister[Any]])
-      extends SlotReplicatingRegisterProxy(registerMap) {
+  class BunchingRegisterProxy(registerMap: MMap[Any, RoundBasedRegister[Any]])
+      extends WideningSlotReplicatingRegisterProxy(registerMap) {
 
     override def receive: Receive = {
+      // TODO: Add impedance matcher for bunching
+
       // Incoming message to a register that might or might not exist
       case rms@RegisterMessageForSlot(slot, msg: RegisterMessage) if msg.dest == self =>
         if (registerMap.isDefinedAt(slot)) {
@@ -80,7 +63,8 @@ class WideningSlotRegisterProvider[T](override val system: ActorSystem, override
   }
 
   // Instantiate the middleware
-  override val AcceptorClass: Class[_] = classOf[WideningSlotReplicatingAcceptor]
-  override val RegisterProxyClass: Class[_] = classOf[WideningSlotReplicatingRegisterProxy]
+  override val AcceptorClass: Class[_] = classOf[BunchingAcceptor]
+  override val RegisterProxyClass: Class[_] = classOf[BunchingRegisterProxy]
+
 
 }
