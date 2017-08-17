@@ -34,6 +34,7 @@ class BunchingRegisterProvider[T](override val system: ActorSystem, override val
         // All are Phase 1-responses
         assert(slotResults.forall(sr => sr._2.isInstanceOf[ackREAD] || sr._2.isInstanceOf[nackREAD]))
 
+        // [!!!] Bunch responses together
         cid ! BunchedAcceptedValues(self, k, slotResults)
 
       case m => super.receive(m)
@@ -41,34 +42,16 @@ class BunchingRegisterProvider[T](override val system: ActorSystem, override val
     }
   }
 
+  // [!!!] Unpack responses
   class BunchingRegisterProxy(registerMap: MMap[Any, RoundBasedRegister[Any]])
       extends WideningSlotReplicatingRegisterProxy(registerMap) {
-
-    // Maintain convinced actors for the future
-    protected val myAcceptedValues: MMap[ActorRef, Map[Slot, Option[(Int, Any)]]] = TMap.empty
 
     override def receive: Receive = {
       case BunchedAcceptedValues(_, k, slotMsgs) =>
         for ((s, msg) <- slotMsgs) {
-          // Record accepted values for specific acceptors/slots to use them for short-cutting below
-          msg match {
-            case ackREAD(src, _, `k`, kWv) =>
-              val amap = myAcceptedValues.getOrElse(src, Map())
-              myAcceptedValues.put(src, amap + (s -> kWv))
-            case _ =>
-          }
           val reg = getRegisterForSlot(s, k)
           reg.deliver(msg)
         }
-
-      // This is an optional short-circuit, which avoids sending messages for new slots
-      case MessageToProxy(READ(_, j, k), slot: Int)
-        if myAcceptedValues.isDefinedAt(j) &&
-            myAcceptedValues(j).isDefinedAt(slot) &&
-            myAcceptedValues(j)(slot).isDefined =>
-        val reg = getRegisterForSlot(slot, k)
-        val vW = myAcceptedValues(j)(slot)
-        reg.deliver(ackREAD(j, self, k, vW))
 
       case m => super.receive(m)
     }

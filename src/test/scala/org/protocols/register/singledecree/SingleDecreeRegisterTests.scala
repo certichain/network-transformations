@@ -14,22 +14,20 @@ class SingleDecreeRegisterTests(_system: ActorSystem) extends TestKit(_system) w
 
   def this() = this(ActorSystem(s"SingleDecreeRegisterTests-${hashCode()}"))
 
+  val proposals = Seq("Kyiv", "Madrid", "London", "St Petersburg", "Salamanca", "Dneprodzerzhinsk", "Tel-Aviv")
+  val numAcceptors = 7
+
   s"All participants in a Single Decree Register-Based Paxos" must {
     s"agree on the same accepted value" in {
 
-      val numAcceptors = 7
       val registerProvider = new SingleDecreeRegisterProvider[String](_system, numAcceptors)
 
-      val v1 = "Kyiv"
-      val v2 = "Madrid"
-      val v3 = "London"
-      val vs = Seq(v1, v2, v3)
-      val barrier = new CountDownLatch(vs.size)
+      val barrier = new CountDownLatch(proposals.size)
 
-      val ts = for (k <- vs.indices; v = vs(k)) yield {
+      val ts = for (k <- proposals.indices; v = proposals(k)) yield {
         new Thread() {
           override def run(): Unit = {
-            Thread.sleep((200 * Math.random()).toInt)
+            Thread.sleep(((200 + 50 * k) * Math.random()).toInt)
             println(s"Proposing with ballot [$k] value [$v].")
             val r = registerProvider.getSingleServedRegister(k)
             r.propose(v)
@@ -50,7 +48,7 @@ class SingleDecreeRegisterTests(_system: ActorSystem) extends TestKit(_system) w
       print("Collecting results... ")
       // Collecting results
       val results =
-        for {k <- vs.indices
+        for {k <- proposals.indices
              r = registerProvider.getSingleServedRegister(k)}
           yield {
             var res = r.read()._2
