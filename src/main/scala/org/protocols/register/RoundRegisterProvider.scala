@@ -1,7 +1,5 @@
 package org.protocols.register
 
-import java.util.concurrent.ConcurrentLinkedQueue
-
 import akka.actor.{ActorRef, ActorSystem, Props}
 import org.protocols.paxos.PaxosException
 

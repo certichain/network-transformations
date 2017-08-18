@@ -2,6 +2,7 @@ package org.protocols.register.multipaxos
 
 import akka.actor.{ActorRef, ActorSystem}
 import org.protocols.register.{MessageToProxy, READ, RoundBasedRegister, ackREAD}
+
 import scala.collection.concurrent.{Map => MMap, TrieMap => TMap}
 
 /**

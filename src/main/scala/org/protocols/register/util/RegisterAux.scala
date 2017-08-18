@@ -5,8 +5,6 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import akka.actor.ActorRef
 import org.protocols.register.{MessageToProxy, RegisterMessage}
 
-import scala.collection.immutable.Nil
-
 /**
   * @author Ilya Sergey
 
