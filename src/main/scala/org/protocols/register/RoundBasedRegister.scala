@@ -21,7 +21,7 @@ class AcceptorForRegister(val self: ActorRef,
     case m@READ(cid, `self`, k) =>
       // Using non-strict inequality here for multi-paxos
       if (k >= read) {
-        bumpUpBallot(k)
+        read = k
         emitMsg(ackREAD(self, cid, k, findMaxBallotAccepted(chosenValues)))
       } else {
         emitMsg(nackREAD(self, cid, k, findMaxBallotAccepted(chosenValues)))

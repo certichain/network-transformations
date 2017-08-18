@@ -52,6 +52,7 @@ trait RegisterAux {
         var inbox: Set[Any] = Set.empty
         while (iter.hasNext) {
           val msg = iter.next()
+          // Check applicability and ignore duplicates
           if (f.isDefinedAt(msg) && !inbox.contains(msg)) {
             inbox = inbox + msg
           }

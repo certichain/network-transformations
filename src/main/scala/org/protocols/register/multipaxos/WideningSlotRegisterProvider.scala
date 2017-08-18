@@ -1,6 +1,6 @@
 package org.protocols.register.multipaxos
 
-import akka.actor.{Actor, ActorSystem}
+import akka.actor.{Actor, ActorRef, ActorSystem}
 import org.protocols.register._
 
 import scala.collection.concurrent.{Map => MMap}
@@ -15,27 +15,36 @@ class WideningSlotRegisterProvider[T](override val system: ActorSystem, override
 
   class WideningSlotReplicatingAcceptor extends CartesianAcceptor {
 
-    protected var myHighestSeenBallot: Int = -1
+    protected var mySupportedRequest: Option[(Int, ActorRef)] = None
 
     protected override def getMachineForSlot(slot: Slot): AcceptorForRegister = {
       val acc = slotAcceptorMap.get(slot) match {
         case Some(role) => role
         case None =>
           val role = new AcceptorForRegister(self)
-          slotAcceptorMap.update(slot, role)
+          slotAcceptorMap.put(slot, role)
           role
       }
-      acc.bumpUpBallot(myHighestSeenBallot)
-      slotAcceptorMap.update(slot, acc)
+
+      // Make the acceptor agree on the message
+      mySupportedRequest match {
+        case Some((k, from)) => acc.step(READ(from, self, k))
+        case _ =>
+      }
       acc
     }
 
+    protected def updateSupportedProposer(cid: ActorRef, b: Int) =
+      mySupportedRequest match {
+        case Some((k, j)) if k >= b =>
+        case _ => mySupportedRequest = Some(b, cid)
+      }
 
     override def receive: Receive = {
       case RegisterMessageForSlot(slot, incoming@READ(cid, j, b)) =>
 
         // Update the ballot and execute the result for all acceptors
-        myHighestSeenBallot = Math.max(myHighestSeenBallot, b)
+        updateSupportedProposer(cid, b)
 
         // Execute phase one for *all* of the acceptors for all slots
         val actualSlots = slotAcceptorMap.keySet + slot

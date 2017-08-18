@@ -16,12 +16,6 @@ trait AcceptorAux {
   /** ****************************************************************************
     * Utility methods and auxiliary fields
     * ****************************************************************************/
-  var read: Int
-
-  // This method is _always_ safe to run, as it only reduces the set of Acceptor's behaviors
-  def bumpUpBallot(b: Ballot): Unit = if (b > read) {
-    read = b
-  }
 
   // Some library functions
   protected def findMaxBallotAccepted(chosenValues: List[(Ballot, Any)]) = chosenValues match {

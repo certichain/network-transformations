@@ -18,7 +18,7 @@ class BunchingRegisterProvider[T](override val system: ActorSystem, override val
 
       case RegisterMessageForSlot(slot, incoming@READ(cid, j, k)) =>
 
-        myHighestSeenBallot = Math.max(myHighestSeenBallot, k)
+        updateSupportedProposer(cid, k)
         val actualSlots = slotAcceptorMap.keySet + slot
 
         val slotResults: Seq[(Slot, RegisterMessage)] =
@@ -27,6 +27,7 @@ class BunchingRegisterProvider[T](override val system: ActorSystem, override val
             (s, toSend)
           }).toSeq
 
+        // A bunch of asserts, feel free to ignore
         // All have the same suggested k
         assert(slotResults.forall(sr => sr._2.k == k))
         // All have the same destination
