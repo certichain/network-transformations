@@ -1,6 +1,6 @@
 package org.protocols.register.multipaxos
 
-import akka.actor.{Actor, ActorRef, ActorSystem}
+import akka.actor.{ActorRef, ActorSystem}
 import org.protocols.register._
 
 import scala.collection.concurrent.{Map => MMap}
