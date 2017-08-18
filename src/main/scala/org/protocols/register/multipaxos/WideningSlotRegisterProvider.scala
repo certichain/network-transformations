@@ -4,7 +4,6 @@ import akka.actor.{ActorRef, ActorSystem}
 import org.protocols.register._
 
 import scala.collection.concurrent.{Map => MMap}
-import scala.collection.mutable.{Set => MSet}
 
 /**
   * @author Ilya Sergey
