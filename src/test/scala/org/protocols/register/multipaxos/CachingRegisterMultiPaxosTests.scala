@@ -6,10 +6,10 @@ import org.protocols.register.RoundRegisterProvider
   * @author Ilya Sergey
   */
 
-class BunchingMultiPaxosTests extends GenericRegisterMultiPaxosTests {
+class CachingRegisterMultiPaxosTests extends GenericRegisterMultiPaxosTests {
 
   def makeRegisterProvider(numAcceptors: Int): RoundRegisterProvider[String] = {
-    new BunchingRegisterProvider[String](_system, numAcceptors)
+    new CachingBunchingRegisterProvider[String](_system, numAcceptors)
   }
 
 }
