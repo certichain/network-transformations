@@ -1,12 +1,10 @@
 package org.protocols.register
 
-import java.util.concurrent.ConcurrentLinkedQueue
-
 import akka.actor.ActorRef
+import org.protocols.register.util.{AcceptorAux, RegisterAux}
 
 import scala.collection.immutable.Nil
 import scala.language.postfixOps
-
 
 /**
   * An acceptor STS
@@ -14,11 +12,7 @@ import scala.language.postfixOps
   * @param initRead Initial ballot to start from
   */
 class AcceptorForRegister(val self: ActorRef,
-                          private val initRead: Int = 0) {
-
-  type Ballot = Int
-  type ToSend = RegisterMessage
-  type Step = PartialFunction[Any, RegisterMessage]
+                          private val initRead: Int = 0) extends AcceptorAux {
 
   var read: Ballot = initRead
   var chosenValues: List[(Ballot, Any)] = Nil
@@ -44,26 +38,6 @@ class AcceptorForRegister(val self: ActorRef,
         emitMsg(nackWRITE(self, cid, k))
       }
   }
-
-
-  /** ****************************************************************************
-    * Utility methods and auxiliary fields
-    * ****************************************************************************/
-
-  // This method is _always_ safe to run, as it only reduces the set of Acceptor's behaviors
-  def bumpUpBallot(b: Ballot): Unit = if (b > read) {
-    read = b
-  }
-
-  // Some library functions
-  private def findMaxBallotAccepted(chosenValues: List[(Ballot, Any)]) = chosenValues match {
-    case Nil => None
-    case x => Some(x.maxBy(_._1))
-  }
-
-  // Adapt the message for the wrapping combinator
-  private def emitMsg(msg: RegisterMessage) = msg
-
 }
 
 
@@ -76,11 +50,11 @@ class AcceptorForRegister(val self: ActorRef,
   * @param contextParams parameters per this instance, passed to the proxy (e.g., a slot)
   **/
 class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
-                            private val myProxy: ActorRef,
+                            val myProxy: ActorRef,
                             val k: Int,
-                            val contextParams: Any) {
+                            val contextParams: Any) extends RegisterAux {
 
-  private val quorumSize = Math.ceil((acceptors.size + 1) / 2)
+  val quorumSize = Math.ceil((acceptors.size + 1) / 2).toInt
 
   def read(): (Boolean, Option[T]) = {
     // Send out requests
@@ -94,7 +68,7 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
     var yesResponses: Set[ActorRef] = Set.empty
     var noResponses: Set[ActorRef] = Set.empty
 
-    processIncomingMessages {
+    processInbox {
       case m@ackREAD(j, _, `k`, kWv) =>
         // Accounting for duplicate messages
         if (!yesResponses.contains(j)) {
@@ -131,7 +105,7 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
 
     // Collect responses
     var yesResponses: Set[ActorRef] = Set.empty
-    processIncomingMessages {
+    processInbox {
       case m@ackWRITE(j, _, `k`) =>
         if (!yesResponses.contains(j)) {
           yesResponses = yesResponses + j
@@ -157,86 +131,7 @@ class RoundBasedRegister[T](private val acceptors: Seq[ActorRef],
     }
   }
 
-
-  /** ****************************************************************************
-    * Utility methods and auxiliary fields
-    * ****************************************************************************/
-
-  private val myMailbox: ConcurrentLinkedQueue[Any] = new ConcurrentLinkedQueue[Any]()
-  private val timeoutMillis = 100
-  private val self: ActorRef = myProxy // Middleman for virtualisation
-
-  private def emitMsg(msg: RegisterMessage): Unit = {
-    self ! MessageToProxy(msg, contextParams)
-  }
-
-  def deliver(msg: Any): Unit = {
-    myMailbox.synchronized {
-      // Need to synchronize in order to avoid infinite loops with `processIncomingMessages`
-      myMailbox.add(msg)
-    }
-  }
-
-  /**
-    * Processing the messages in the mailbox.
-    * Resorting to shameful shared-memory concurrency... [sigh].
-    *
-    * @param f function to select and process messages
-    */
-  private def processIncomingMessages(f: PartialFunction[Any, Unit]) {
-    // Wait until enough messages received instead of timeout
-    var shouldProcess = true
-
-    // Loop while not sufficiently many mails collected
-    while (shouldProcess) {
-      myMailbox.synchronized {
-        val iter = myMailbox.iterator()
-        var inbox: Set[Any] = Set.empty
-        while (iter.hasNext) {
-          val msg = iter.next()
-          if (f.isDefinedAt(msg) && !inbox.contains(msg)) {
-            inbox = inbox + msg
-          }
-        }
-        // Collected sufficiently many letters to process: can now shoot
-        if (inbox.size >= quorumSize) {
-          // Process all the collected incoming mails with f
-          for (m <- inbox) {
-            f(m)
-          }
-          // Clean the inbox from similar messages
-          myMailbox.removeIf(f.isDefinedAt(_))
-          shouldProcess = false
-        }
-      }
-    }
-  }
-
 }
-
-/////////////////////////////////////////////////////////////////////////////////
-/**
-  * Register-based messages
-  */
-/////////////////////////////////////////////////////////////////////////////////
-abstract sealed class RegisterMessage {
-  // Source of the message
-  def src : ActorRef
-  // An actor to send this message to
-  def dest: ActorRef
-  // Ballot, subject of interaction
-  def k: Int
-}
-
-final case class READ(src: ActorRef, dest: ActorRef, k: Int) extends RegisterMessage
-final case class ackREAD(src: ActorRef, dest: ActorRef, k: Int, kWv: Option[(Int, Any)]) extends RegisterMessage
-final case class nackREAD(src: ActorRef, dest: ActorRef, k: Int, kWv: Option[(Int, Any)]) extends RegisterMessage
-
-final case class WRITE(src: ActorRef, dest: ActorRef, k: Int, vW: Any) extends RegisterMessage
-final case class ackWRITE(src: ActorRef, dest: ActorRef, k: Int) extends RegisterMessage
-final case class nackWRITE(src: ActorRef, dest: ActorRef, k: Int) extends RegisterMessage
-
-case class MessageToProxy(rm: RegisterMessage, params: Any)
 
 
 
