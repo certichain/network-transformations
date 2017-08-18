@@ -11,7 +11,7 @@ import scala.collection.mutable.{Set => MSet}
   */
 
 class WideningSlotRegisterProvider[T](override val system: ActorSystem, override val numA: Int)
-    extends SlotReplicatingRegisterProvider[T](system, numA) {
+    extends CartesianRegisterProvider[T](system, numA) {
 
   class WideningSlotReplicatingAcceptor extends CartesianAcceptor {
 

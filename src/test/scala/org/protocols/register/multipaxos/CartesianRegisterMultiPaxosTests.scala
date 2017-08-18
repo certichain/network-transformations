@@ -9,7 +9,7 @@ import org.protocols.register.RoundRegisterProvider
 class CartesianRegisterMultiPaxosTests extends GenericRegisterMultiPaxosTests {
 
   def makeRegisterProvider(numAcceptors: Int): RoundRegisterProvider[String] = {
-    new SlotReplicatingRegisterProvider[String](_system, numAcceptors)
+    new CartesianRegisterProvider[String](_system, numAcceptors)
   }
 
 }

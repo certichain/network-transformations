@@ -10,7 +10,7 @@ import scala.collection.concurrent.{Map => MMap, TrieMap => TMap}
   */
 case class RegisterMessageForSlot[+M](slot: Int, msg: M)
 
-class SlotReplicatingRegisterProvider[T](override val system: ActorSystem, override val numA: Int)
+class CartesianRegisterProvider[T](override val system: ActorSystem, override val numA: Int)
     extends RoundRegisterProvider[T](system, numA) {
 
   type Slot = Int
