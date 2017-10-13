@@ -36,17 +36,17 @@ Generic definition of Paxos roles and the corresponding implementations.
 ### Generic round-based register implementation
 
 The generic register-based machinery is implemented by the classes in
-the source files under `./src/main/scala/org/protocols/register`. The
+the source files under [`./src/main/scala/org/protocols/register`](src/main/scala/org/protocols/register). The
 following components are the essential ones:
 
-* `RegisterMessage.scala` - register-relevant Paxos messages, as
+* [`RegisterMessage.scala`](src/main/scala/org/protocols/register/RegisterMessage.scala) - register-relevant Paxos messages, as
   described in Section 3 of the accompanying paper;
 
-* `RoundBasedRegister.scala` - an implementation of the Acceptor and
+* [`RoundBasedRegister.scala`](src/main/scala/org/protocols/register/RoundBasedRegister.scala) - an implementation of the Acceptor and
   Proposer corresponding the register-based interface of a
   Single-Decree Paxos (Section 3);
 
-* `RoundRegisterProvider.scala` - a generic implementation of a
+* [`RoundRegisterProvider.scala`](src/main/scala/org/protocols/register/RoundRegisterProvider.scala) - a generic implementation of a
   register (consensus) provider which can be extended for specific
   network semantics from Section 5. The method
   `getSingleServedRegister` is used to obtain the register, which can
@@ -57,26 +57,22 @@ following components are the essential ones:
 Various semantics are implemented in the folders `register/singledecree` and
 `register/multipaxos`:
 
-* `SingleDecreeRegisterProvider.scala` - implementation of a
+* [`SingleDecreeRegisterProvider.scala`](src/main/scala/org/protocols/register/singledecree/SingleDecreeRegisterProvider.scala) - implementation of a
   single-decree register-based Paxos via a simple network semantics
   from Section 5.1.
 
-* `CartesianRegisterProvider.scala` - implementation of a
-  slot-replicating network layer (Section 5.3).
+* [`CartesianRegisterProvider.scala`](src/main/scala/org/protocols/register/multipaxos/CartesianRegisterProvider.scala) - implementation of a slot-replicating network layer (Section 5.3).
 
-* `WideningSlotRegisterProvider.scala` - an optimised widening network
-  layer (Section 5.5).
+* [`WideningSlotRegisterProvider.scala`](src/main/scala/org/protocols/register/multipaxos/WideningSlotRegisterProvider.scala) - an optimised widening network layer (Section 5.5).
 
-* `BunchingRegisterProvider.scala` - a bunching network semantics
-  (Section 5.6).
+* [`BunchingRegisterProvider.scala`](src/main/scala/org/protocols/register/multipaxos/BunchingRegisterProvider.scala) - a bunching network semantics (Section 5.6).
 
 ### Testing different network semantics
 
 The test suite for various versions of Multi-Paxos is implemented in
 `protocol-combinators/src/test/scala/org/protocols/register/multipaxos`:
 
-* `GenericRegisterMultiPaxosTests.scala` - a set of tests for all
-  versions of MultiPaxos, parameterised by the provider;
+* [`GenericRegisterMultiPaxosTests.scala`](src/test/scala/org/protocols/register/multipaxos/GenericRegisterMultiPaxosTests.scala) - a set of tests for all versions of MultiPaxos, parameterised by the provider;
 
 Other files in the same folder instantiate it with different register
 providers.
