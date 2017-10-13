@@ -70,7 +70,7 @@ Various semantics are implemented in the folders `register/singledecree` and
 ### Testing different network semantics
 
 The test suite for various versions of Multi-Paxos is implemented in
-`protocol-combinators/src/test/scala/org/protocols/register/multipaxos`:
+[`./src/test/scala/org/protocols/register/multipaxos`](./src/test/scala/org/protocols/register/multipaxos):
 
 * [`GenericRegisterMultiPaxosTests.scala`](src/test/scala/org/protocols/register/multipaxos/GenericRegisterMultiPaxosTests.scala) - a set of tests for all versions of MultiPaxos, parameterised by the provider;
 
