@@ -1,10 +1,13 @@
 # A Library of Protocol Combinators
 
-Experiments in implementing reusable consensus protocols with Scala and Akka.
+This project provides a library of reusable components to build
+distributed consensus protocols of the Paxos family, implemented in
+Scala and Akka.
 
-This development is a proof-of-concept prototype for the work _Paxos
-Consensus, Deconstructed and Abstracted_, by Alvaro Garcia-Perez,
-Alexey Gotsman, Yuri Meshman1, and Ilya Sergey, currently in submission.
+The development in this repository is a proof-of-concept prototype for
+the work _Paxos Consensus, Deconstructed and Abstracted_, by Alvaro
+Garcia-Perez, Alexey Gotsman, Yuri Meshman, and Ilya Sergey, which is
+currently in submission.
 
 ## How to build
 
@@ -32,9 +35,9 @@ Generic definition of Paxos roles and the corresponding implementations.
 
 The generic register-based machinery is implemented by the classes in
 the source files under `./src/main/scala/org/protocols/register`. The
-following components are the essntial ones:
+following components are the essential ones:
 
-* `RegisterMessage.scala` - register-relevant PAxos messages, as
+* `RegisterMessage.scala` - register-relevant Paxos messages, as
   described in Section 3 of the accompanying paper;
 
 * `RoundBasedRegister.scala` - an implementation of the Acceptor and
@@ -66,7 +69,7 @@ Various semantics are implemented in the folders `register/singledecree` and
 
 ### Testing different network semantics
 
-The test suite for vairious versions of Multi-Paxos is implemented in
+The test suite for various versions of Multi-Paxos is implemented in
 `protocol-combinators/src/test/scala/org/protocols/register/multipaxos/GenericRegisterMultiPaxosTests.scala`. Other
 files in the same folder instantiate it with different register
 providers.
