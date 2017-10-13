@@ -24,8 +24,9 @@ tests for implemented consensus protocols.
 
 Generic definition of Paxos roles and the corresponding implementations. 
   
-* Single Degree Paxos, built on top of the Roles
+* Single Degree Paxos, built on top of a round-based register
 * "_Fully disjoint_" Slot-replicated "MultiPaxos", using the same roles;
+* "_Widened_" Slot-replicated "MultiPaxos", using the same roles;
 * "_Bunching_" MultiPaxos (this is the real MultiPaxos);
 * StoppablePaxos on top of MultiPaxos (not discussed in the paper);
 
@@ -41,13 +42,14 @@ following components are the essential ones:
   described in Section 3 of the accompanying paper;
 
 * `RoundBasedRegister.scala` - an implementation of the Acceptor and
-  Proposer implementing the register-based interface;
+  Proposer corresponding the register-based interface of a
+  Single-Decree Paxos (Section 3);
 
 * `RoundRegisterProvider.scala` - a generic implementation of a
   register (consensus) provider which can be extended for specific
   network semantics from Section 5. The method
   `getSingleServedRegister` is used to obtain the register, which can
-  be used via its `read`, `write` and `propose` methods.
+  be used via its `read`, `write` and `propose` methods (Section 6).
 
 ### Network semantics and register providers
 
@@ -70,8 +72,12 @@ Various semantics are implemented in the folders `register/singledecree` and
 ### Testing different network semantics
 
 The test suite for various versions of Multi-Paxos is implemented in
-`protocol-combinators/src/test/scala/org/protocols/register/multipaxos/GenericRegisterMultiPaxosTests.scala`. Other
-files in the same folder instantiate it with different register
+`protocol-combinators/src/test/scala/org/protocols/register/multipaxos`:
+
+* `GenericRegisterMultiPaxosTests.scala` - a set of tests for all
+  versions of MultiPaxos, parameterised by the provider;
+
+Other files in the same folder instantiate it with different register
 providers.
 
 Execute `sbt test` to run the test suite.
