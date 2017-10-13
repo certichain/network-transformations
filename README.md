@@ -20,14 +20,15 @@ sbt test
 This will compile all the implementations and run the multi-threaded
 tests for implemented consensus protocols.
 
-## Family of Paxos Consensus implementations
+## Family of Paxos Consensus Implementations
 
 Generic definition of Paxos roles and the corresponding implementations. 
   
-* Single Degree Paxos, built on top of a round-based register
-* "_Fully disjoint_" Slot-replicated "MultiPaxos", using the same roles;
-* "_Widened_" Slot-replicated "MultiPaxos", using the same roles;
-* "_Bunching_" MultiPaxos (this is the real MultiPaxos);
+* Single Degree Paxos, built on top of a single-decree round-based register
+* "_Fully disjoint_" Slot-replicated Paxos, using the SD RB Register;
+* "_Widened_" Slot-replicated Paxos with "spurious" Phase1a messages;
+* "_Bunching_" MultiPaxos with "bunched" speculative Phase1a messages
+  (this is the real MultiPaxos);
 * StoppablePaxos on top of MultiPaxos (not discussed in the paper);
 
 ## Correspondence between Code and Paper
