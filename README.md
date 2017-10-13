@@ -1,4 +1,4 @@
-# A Library of Protocol Combinators
+# A Library of Combinators for Distributed Consensus Implementations
 
 This project provides a library of reusable components to build
 distributed consensus protocols of the Paxos family, implemented in
